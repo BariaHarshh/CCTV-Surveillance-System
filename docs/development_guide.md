@@ -28,7 +28,6 @@ Define default settings and paths for your feature:
 # Restricted Area Detection Preset Settings
 model_path: "models/yolov8n.pt"
 video_path: "videos/stock/sample.mp4"
-output_path: "videos/output/restricted_area_output.mp4"
 ```
 
 ### 3. Create Dedicated Runner Script (`app/run_restricted_area.py`)
