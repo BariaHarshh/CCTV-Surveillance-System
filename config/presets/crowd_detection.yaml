@@ -1,0 +1,17 @@
+# Crowd Detection Preset Settings
+
+# File Paths
+model_path: "models/yolov8n.pt"                          # YOLO model weights
+video_path: "videos/stock/sample.mp4"                    # Input video source
+
+# Detection & Tracking
+confidence_threshold: 0.35              # Min detection confidence (0.0 - 1.0)
+tracker_type: "bytetrack.yaml"           # Object tracker configuration
+
+# Count Stabilization
+count_smoothing_window: 15               # Rolling window size (frames) for median smoothing
+count_drop_confirmation_seconds: 1.0    # Seconds low count must persist before dropping stable count
+
+# Crowd Thresholds
+person_threshold: 10                     # Min people count to start crowd check
+persistence_seconds: 3.0                 # Seconds threshold must be held for crowd alert

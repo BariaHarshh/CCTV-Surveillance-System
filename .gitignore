@@ -1,0 +1,39 @@
+# Python & Environment
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+
+# IDE & Editor
+.vscode/
+.idea/
+
+# Environment variables & secrets
+.env
+.env.local
+
+# Logs & Temporary Data
+*.log
+scratch/
+
+# Large Model Weights
+models/*.pt
+models/*.onnx
+models/*.engine
+!models/.gitkeep
+
+# Videos (Keep stock & input README/gitkeep)
+videos/input/*
+!videos/input/README.md
+!videos/input/.gitkeep
+
+videos/stock/*
+!videos/stock/README.md
+!videos/stock/sample.mp4
+!videos/stock/sample2.mp4
+!videos/stock/.gitkeep
