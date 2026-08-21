@@ -1,6 +1,7 @@
 """
 Crowd Detector Processor
 Handles time-based crowd detection logic given a stabilized person count.
+Supports video timeline timestamps (frame_index / fps) for deterministic crowd detection.
 """
 
 import time
@@ -20,19 +21,24 @@ class CrowdDetector:
         self.crowd_detected = False
         self.status = "NORMAL"
 
-    def update(self, person_count):
+    def update(self, person_count, current_time=None):
         """
         Updates the crowd detector state with the current person count.
+
+        Args:
+            person_count (int): Current stable person count.
+            current_time (float, optional): Current video timestamp in seconds (frame_index / fps).
+                                             If None, wall-clock time.time() is used.
         """
-        current_time = time.time()
+        now = current_time if current_time is not None else time.time()
 
         if person_count > self.person_threshold:
             if self.start_time is None:
-                self.start_time = current_time
+                self.start_time = now
                 self.status = "CHECKING CROWD"
                 print(f"[INFO] Person count ({person_count}) > threshold ({self.person_threshold}). Starting persistence check...")
 
-            elapsed = current_time - self.start_time
+            elapsed = now - self.start_time
             progress = min(elapsed, float(self.persistence_seconds))
 
             if elapsed >= self.persistence_seconds:

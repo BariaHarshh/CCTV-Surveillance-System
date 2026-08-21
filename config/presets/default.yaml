@@ -7,6 +7,7 @@ video_path: "videos/stock/sample.mp4"                    # Input video source
 # Detection & Tracking
 confidence_threshold: 0.35              # Min detection confidence (0.0 - 1.0)
 tracker_type: "bytetrack.yaml"           # Object tracker configuration
+frame_skip: 2                           # Process every Nth frame (1=all frames, 2=smooth 2x boost)
 
 # Count Stabilization
 count_smoothing_window: 15               # Rolling window size (frames) for median smoothing

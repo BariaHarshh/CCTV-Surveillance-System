@@ -20,6 +20,7 @@ OUTPUT_PATH = None
 # Detection & Tracking Settings
 CONFIDENCE_THRESHOLD = 0.35
 TRACKER_TYPE = "bytetrack.yaml"
+FRAME_SKIP = 2  # Run YOLO detection on every Nth frame (1=every frame, 2=every 2nd frame)
 
 # Stabilization & Smoothing Settings
 COUNT_SMOOTHING_WINDOW = 15
@@ -34,7 +35,7 @@ def load_preset(preset_name="crowd_detection.yaml"):
     Loads configuration settings from a YAML preset file in config/presets/.
     """
     global MODEL_PATH, VIDEO_PATH, OUTPUT_PATH
-    global CONFIDENCE_THRESHOLD, TRACKER_TYPE
+    global CONFIDENCE_THRESHOLD, TRACKER_TYPE, FRAME_SKIP
     global COUNT_SMOOTHING_WINDOW, COUNT_DROP_CONFIRMATION_SECONDS
     global PERSON_THRESHOLD, PERSISTENCE_SECONDS
 
@@ -56,6 +57,7 @@ def load_preset(preset_name="crowd_detection.yaml"):
 
         CONFIDENCE_THRESHOLD = data.get("confidence_threshold", CONFIDENCE_THRESHOLD)
         TRACKER_TYPE = data.get("tracker_type", TRACKER_TYPE)
+        FRAME_SKIP = data.get("frame_skip", FRAME_SKIP)
         COUNT_SMOOTHING_WINDOW = data.get("count_smoothing_window", COUNT_SMOOTHING_WINDOW)
         COUNT_DROP_CONFIRMATION_SECONDS = data.get("count_drop_confirmation_seconds", COUNT_DROP_CONFIRMATION_SECONDS)
         PERSON_THRESHOLD = data.get("person_threshold", PERSON_THRESHOLD)
