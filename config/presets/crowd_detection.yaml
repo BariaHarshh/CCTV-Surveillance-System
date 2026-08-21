@@ -14,5 +14,5 @@ count_smoothing_window: 15               # Rolling window size (frames) for medi
 count_drop_confirmation_seconds: 1.0    # Seconds low count must persist before dropping stable count
 
 # Crowd Thresholds
-person_threshold: 10                     # Min people count to start crowd check
+person_threshold: 5                     # Min people count to start crowd check
 persistence_seconds: 3.0                 # Seconds threshold must be held for crowd alert
