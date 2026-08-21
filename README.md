@@ -8,7 +8,7 @@
 
 | Feature | Status | Description |
 | :--- | :---: | :--- |
-| **Crowd Detection** | ✅ **Active** | Real-time person detection, ByteTrack tracking, count stabilization, and persistent crowd alert monitoring. |
+| **Crowd Detection** | ✅ **Done** | Real-time person detection, ByteTrack tracking, count stabilization, and persistent crowd alert monitoring. |
 | **Restricted Area Detection** | 🚧 *Planned* | Detect unauthorized entry into restricted campus zones using ROI masks. |
 | **Abandoned Object Detection** | 🚧 *Planned* | Detect unattended bags or objects stationary for > threshold time. |
 | **Risk Assessment Engine** | 🚧 *Planned* | Real-time risk scoring & priority incident alerts. |
