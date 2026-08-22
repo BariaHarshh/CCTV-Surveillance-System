@@ -12,6 +12,7 @@ class MovementAnalyzer:
     """
     Evaluates individual motion dynamics over a sliding temporal window.
     Detects sudden sprint bursts, rapid direction oscillations, and abrupt aggressive acceleration.
+    Calibrated to ignore normal walking, jogging, and minor directional turns.
     """
     def __init__(self, config: Optional[MovementConfig] = None, camera_id: str = "CAM-01", location: Optional[str] = None):
         self.config = config or MovementConfig()
@@ -70,14 +71,14 @@ class MovementAnalyzer:
             is_high_accel = max_accel >= self.config.acceleration_threshold
             is_erratic_direction = volatility >= self.config.direction_volatility_threshold
 
-            # Multi-condition activation:
+            # Robust multi-condition activation:
             # - High speed combined with high acceleration OR
             # - High speed with erratic zig-zagging / direction changes OR
-            # - Extreme acceleration burst
+            # - Extreme high speed burst (sprinting/fleeing)
             is_unusual_movement = (
                 (is_high_speed and is_high_accel) or
                 (is_high_speed and is_erratic_direction) or
-                (max_accel >= self.config.acceleration_threshold * 1.4 and mean_speed >= 80.0)
+                (max_speed >= self.config.speed_threshold * 1.35 and is_high_accel)
             )
 
             # 3. State Machine & Persistence
@@ -130,11 +131,11 @@ class MovementAnalyzer:
 
     def _compute_confidence(self, speed: float, accel: float, volatility: float) -> float:
         """Computes internal movement anomaly confidence score (0.0 to 1.0)."""
-        speed_score = min(1.0, max(0.0, speed / (self.config.speed_threshold * 1.5)))
-        accel_score = min(1.0, max(0.0, accel / (self.config.acceleration_threshold * 1.5)))
-        vol_score = min(1.0, max(0.0, volatility / (self.config.direction_volatility_threshold * 1.5)))
+        speed_score = min(1.0, max(0.0, speed / (self.config.speed_threshold * 1.3)))
+        accel_score = min(1.0, max(0.0, accel / (self.config.acceleration_threshold * 1.3)))
+        vol_score = min(1.0, max(0.0, volatility / (self.config.direction_volatility_threshold * 1.3)))
 
-        raw = (0.40 * speed_score) + (0.35 * accel_score) + (0.25 * vol_score)
+        raw = (0.45 * speed_score) + (0.35 * accel_score) + (0.20 * vol_score)
         return min(0.95, max(0.20, raw))
 
     def get_state(self, track_id: int) -> Dict[str, Any]:

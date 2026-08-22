@@ -10,13 +10,13 @@ from typing import Dict, Any, Optional
 class FallConfig:
     """Configuration parameters for Fall Detection."""
     enabled: bool = True
-    aspect_ratio_threshold: float = 1.0          # Width / Height ratio for fallen/horizontal body posture
-    aspect_ratio_expansion_ratio: float = 1.7    # Relative widening ratio compared to person's upright baseline
-    vertical_drop_ratio: float = 0.35            # Proportional reduction in bounding-box height
-    vertical_velocity_threshold: float = 90.0    # Downward velocity in pixels/sec to register rapid fall
-    immobility_speed_threshold: float = 140.0    # Max speed while on the ground (distinguishes fallen from sprinting)
-    persistence_seconds: float = 0.9             # Duration fallen posture must persist before confirming event
-    confidence_threshold: float = 0.60           # Minimum confidence to emit fall event
+    aspect_ratio_threshold: float = 0.92          # Width / Height ratio for fallen/horizontal body posture
+    aspect_ratio_expansion_ratio: float = 1.4    # Relative widening ratio compared to person's upright baseline
+    vertical_drop_ratio: float = 0.28            # Proportional reduction in bounding-box height
+    vertical_velocity_threshold: float = 60.0    # Downward velocity in pixels/sec to register rapid fall
+    immobility_speed_threshold: float = 60.0     # Max speed while on ground (px/sec)
+    persistence_seconds: float = 0.6             # Duration fallen posture must persist before confirming event
+    confidence_threshold: float = 0.50           # Minimum confidence to emit fall event
     cooldown_seconds: float = 5.0                # Suppression cooldown between repeated alerts for same person
     edge_margin_pixels: int = 6                  # Ignore border-clipped false triggers at video boundaries
 
@@ -24,23 +24,23 @@ class FallConfig:
 class MovementConfig:
     """Configuration parameters for Aggressive / Unusual Movement Detection."""
     enabled: bool = True
-    speed_threshold: float = 160.0               # Speed in pixels/sec considered abnormally fast/darting
-    acceleration_threshold: float = 220.0        # Acceleration in pixels/sec^2 considered sudden burst/stop
-    direction_volatility_threshold: float = 55.0 # Standard deviation in movement heading degrees (erratic path)
-    persistence_seconds: float = 0.8             # Duration sustained erratic motion must persist
-    confidence_threshold: float = 0.60           # Minimum confidence to emit movement event
-    cooldown_seconds: float = 4.0                # Cooldown between repeated movement alerts
+    speed_threshold: float = 320.0               # Speed in pixels/sec considered abnormally fast/sprinting
+    acceleration_threshold: float = 280.0        # Acceleration in pixels/sec^2 considered sudden burst
+    direction_volatility_threshold: float = 75.0 # Standard deviation in movement heading degrees (erratic path)
+    persistence_seconds: float = 1.2             # Duration sustained erratic motion must persist
+    confidence_threshold: float = 0.65           # Minimum confidence to emit movement event
+    cooldown_seconds: float = 8.0                # Cooldown between repeated movement alerts
 
 @dataclass
 class FightConfig:
     """Configuration parameters for Potential Fight / Violent Interaction Detection."""
     enabled: bool = True
-    proximity_threshold: float = 140.0           # Max center-to-center distance (px) to consider people interacting
+    proximity_threshold: float = 150.0           # Max center-to-center distance (px) to consider people interacting
     convergence_speed_threshold: float = 60.0    # Rate at which distance decreases (approaching)
-    mutual_speed_threshold: float = 110.0        # Combined or individual speed during close interaction
+    mutual_speed_threshold: float = 160.0        # Combined or individual speed during close interaction
     mutual_accel_threshold: float = 160.0        # Acceleration during struggle / grappling
-    persistence_seconds: float = 1.1             # Duration close aggressive interaction must persist
-    confidence_threshold: float = 0.68           # Minimum confidence to emit fight event
+    persistence_seconds: float = 1.0             # Duration close aggressive interaction must persist
+    confidence_threshold: float = 0.65           # Minimum confidence to emit fight event
     cooldown_seconds: float = 6.0                # Cooldown between repeated fight alerts for the same pair
 
 @dataclass

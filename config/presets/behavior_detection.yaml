@@ -1,4 +1,4 @@
-# Behavior Detection Preset Settings
+# Behavior Detection Preset Settings (Calibrated for High Accuracy)
 
 # File Paths
 model_path: "models/yolov8n.pt"                          # YOLO model weights file
@@ -17,35 +17,35 @@ track_inactivity_timeout_seconds: 2.0   # Time before purging lost person track
 camera_id: "CAM-01"                     # Surveillance camera identifier tag
 location: "Campus Grounds"              # Camera location/zone description
 
-# Fall Detection Settings
+# Fall Detection Settings (Calibrated for High Recall on Fallen Postures)
 fall:
   enabled: true                         # Enable fall detection module
-  aspect_ratio_threshold: 1.0           # Body width/height ratio for horizontal posture
-  aspect_ratio_expansion_ratio: 1.7     # Relative body widening factor during fall
-  vertical_drop_ratio: 0.35             # Proportional drop in box height
-  vertical_velocity_threshold: 90.0     # Min downward speed (px/sec) to trigger fall
-  immobility_speed_threshold: 140.0     # Max speed on ground (filters sprinting vs fallen)
-  persistence_seconds: 0.9              # Seconds fallen posture must persist
-  confidence_threshold: 0.60            # Min confidence score for fall alert
+  aspect_ratio_threshold: 0.92          # Body width/height ratio for horizontal/collapsed posture
+  aspect_ratio_expansion_ratio: 1.4     # Relative body widening factor during fall
+  vertical_drop_ratio: 0.28             # Proportional drop in box height (28%)
+  vertical_velocity_threshold: 60.0     # Min downward speed (px/sec) during collapse
+  immobility_speed_threshold: 60.0      # Max speed on ground (px/sec) to confirm fallen posture
+  persistence_seconds: 0.6              # Seconds fallen posture must persist
+  confidence_threshold: 0.50            # Min confidence score for fall alert
   cooldown_seconds: 5.0                 # Seconds cooldown between repeat alerts
 
-# Aggressive Movement Settings
+# Aggressive Movement Settings (Calibrated against False Sprinting / Jogging Alarms)
 movement:
   enabled: true                         # Enable aggressive movement detection
-  speed_threshold: 160.0                # Speed (px/sec) considered darting/running
-  acceleration_threshold: 220.0         # Acceleration (px/sec^2) for sudden bursts
-  direction_volatility_threshold: 55.0  # Heading variation angle (deg) for erratic paths
-  persistence_seconds: 0.8              # Seconds erratic motion must persist
-  confidence_threshold: 0.60            # Min confidence score for movement alert
-  cooldown_seconds: 4.0                 # Seconds cooldown between repeat alerts
+  speed_threshold: 320.0                # Speed (px/sec) for extreme sprinting/fleeing only
+  acceleration_threshold: 280.0         # Acceleration (px/sec^2) for sudden erratic bursts
+  direction_volatility_threshold: 75.0  # Heading variation angle (deg) for erratic zigzag paths
+  persistence_seconds: 1.2              # Seconds erratic motion must persist
+  confidence_threshold: 0.65            # Min confidence score for movement alert
+  cooldown_seconds: 8.0                 # Seconds cooldown between repeat alerts for same person
 
-# Fight Detection Settings
+# Fight / Altercation Detection Settings (Balanced to Prevent False Pass-By Alerts)
 fight:
   enabled: true                         # Enable fighting altercation detection
-  proximity_threshold: 140.0            # Max distance (px) between interacting persons
+  proximity_threshold: 150.0            # Max center-to-center distance (px) for close interaction
   convergence_speed_threshold: 60.0     # Approach speed (px/sec) when closing in
-  mutual_speed_threshold: 110.0         # Combined movement speed during struggle
-  mutual_accel_threshold: 160.0         # Combined acceleration during struggle
-  persistence_seconds: 1.1              # Seconds close struggle must persist
-  confidence_threshold: 0.68            # Min confidence score for fight alert
+  mutual_speed_threshold: 160.0         # Combined movement speed (px/sec) during struggle
+  mutual_accel_threshold: 160.0         # Combined acceleration (px/sec^2) during struggle/pushing
+  persistence_seconds: 1.0              # Seconds close struggle must persist (1.0s)
+  confidence_threshold: 0.65            # Min confidence score for fight alert
   cooldown_seconds: 6.0                 # Seconds cooldown between repeat alerts

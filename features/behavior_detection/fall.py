@@ -84,27 +84,26 @@ class FallDetector:
             # 1. Kinematic & Geometric Metrics
             aspect_ratio = current_obs.aspect_ratio
             height_drop_ratio = track.get_height_drop_ratio()
-            downward_vy = track.get_vertical_drop_velocity(seconds=0.6)
+            downward_vy = track.get_vertical_drop_velocity(seconds=1.5)
             current_speed = track.get_mean_speed(seconds=0.5)
 
             standing_ar = track.standing_aspect_baseline or 0.45
-            standing_h = track.standing_height_baseline or current_obs.height
 
             # Relative widening compared to individual's standing baseline
             ar_expansion = aspect_ratio / standing_ar if standing_ar > 0 else 1.0
 
             # 2. Multi-Signal Fallen Posture Evaluation
-            # Condition A: Absolute horizontal posture (width >= height * threshold)
+            # Condition A: Absolute horizontal / collapsed posture (aspect ratio >= threshold)
             cond_abs_horizontal = aspect_ratio >= self.config.aspect_ratio_threshold
             
-            # Condition B: Relative posture shift (body widened >= 1.7x baseline AND height contracted >= 35%)
+            # Condition B: Relative posture shift (body widened >= expansion_ratio AND height contracted >= drop_ratio)
             cond_relative_collapse = (ar_expansion >= self.config.aspect_ratio_expansion_ratio and height_drop_ratio >= self.config.vertical_drop_ratio)
             
-            # Condition C: Rapid downward descent followed by low horizontal posture
-            cond_downward_drop = (downward_vy >= self.config.vertical_velocity_threshold and aspect_ratio >= 0.85)
+            # Condition C: Rapid downward descent followed by low posture
+            cond_downward_drop = (downward_vy >= self.config.vertical_velocity_threshold and aspect_ratio >= 0.80)
 
             # Not sprinting away horizontally while upright
-            is_grounded = current_speed <= self.config.immobility_speed_threshold or aspect_ratio >= 1.2
+            is_grounded = current_speed <= self.config.immobility_speed_threshold or aspect_ratio >= 1.0
 
             is_fallen_candidate = (cond_abs_horizontal or cond_relative_collapse or cond_downward_drop) and is_grounded
 
@@ -177,20 +176,20 @@ class FallDetector:
         det_confidence: float
     ) -> float:
         """Calculates calibrated multi-factor confidence (0.0 to 1.0) for fall detection."""
-        # 1. Absolute AR score
-        ar_score = min(1.0, max(0.0, (aspect_ratio - 0.75) / 0.60))
+        # 1. Absolute AR score (aspect ratio 0.9 -> score 0.6, 1.2 -> score 1.0)
+        ar_score = min(1.0, max(0.0, (aspect_ratio - 0.60) / 0.50))
 
         # 2. Relative expansion score
-        exp_score = min(1.0, max(0.0, (ar_expansion - 1.2) / 1.0))
+        exp_score = min(1.0, max(0.0, (ar_expansion - 1.1) / 0.60))
 
         # 3. Height drop score
-        drop_score = min(1.0, max(0.0, (height_drop_ratio - 0.20) / 0.40))
+        drop_score = min(1.0, max(0.0, (height_drop_ratio - 0.15) / 0.35))
 
         # 4. Downward velocity contribution
-        vel_score = min(1.0, max(0.0, downward_vy / 140.0))
+        vel_score = min(1.0, max(0.0, downward_vy / 80.0))
 
-        raw_confidence = (0.35 * ar_score) + (0.25 * exp_score) + (0.25 * drop_score) + (0.15 * vel_score)
-        scaled_confidence = raw_confidence * (0.75 + 0.25 * det_confidence)
+        raw_confidence = (0.40 * ar_score) + (0.25 * exp_score) + (0.25 * drop_score) + (0.10 * vel_score)
+        scaled_confidence = raw_confidence * (0.80 + 0.20 * det_confidence)
         return min(0.98, max(0.20, scaled_confidence))
 
     def get_state(self, track_id: int) -> Dict[str, Any]:

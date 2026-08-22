@@ -13,6 +13,7 @@ class FightDetector:
     """
     Evaluates pairwise interactions between tracked individuals.
     Detects sustained close-range violent encounters, aggressive rushes, and mutual physical struggle.
+    Calibrated to prevent false alarms on persons simply walking past each other.
     """
     def __init__(self, config: Optional[FightConfig] = None, camera_id: str = "CAM-01", location: Optional[str] = None):
         self.config = config or FightConfig()
@@ -68,7 +69,8 @@ class FightDetector:
 
                 obs1 = track1.observations[-1]
                 obs2 = track2.observations[-1]
-                # 1. Spatial Pre-filtering (skip distance sqrt and metric calculations for distant pairs)
+
+                # 1. Spatial Proximity Check
                 cx1, cy1 = obs1.center
                 cx2, cy2 = obs2.center
                 dx = abs(cx1 - cx2)
@@ -108,17 +110,17 @@ class FightDetector:
                 max_pair_accel = max(accel1, accel2)
                 mean_volatility = (vol1 + vol2) / 2.0
 
-                # 3. Proximity and Aggressive Criteria
+                # 3. Proximity and Aggressive Encounter Criteria
                 is_close_proximity = True
                 
                 # Active kinetic encounter condition:
                 # - In close proximity AND
-                # - (Combined speed is high OR rapid acceleration OR high direction volatility / erratic struggle)
+                # - (High combined mutual speed OR rapid struggle acceleration OR erratic mutual volatility)
                 is_aggressive_interaction = (
                     is_close_proximity and
                     (
                         (combined_speed >= self.config.mutual_speed_threshold) or
-                        (max_pair_speed >= 100.0 and max_pair_accel >= self.config.mutual_accel_threshold) or
+                        (max_pair_speed >= 80.0 and max_pair_accel >= self.config.mutual_accel_threshold) or
                         (dist <= self.config.proximity_threshold * 0.75 and mean_volatility >= 40.0)
                     )
                 )
@@ -187,16 +189,16 @@ class FightDetector:
         prox_score = min(1.0, max(0.0, (self.config.proximity_threshold - dist) / self.config.proximity_threshold))
 
         # 2. Kinetic velocity score
-        speed_score = min(1.0, max(0.0, combined_speed / (self.config.mutual_speed_threshold * 1.6)))
+        speed_score = min(1.0, max(0.0, combined_speed / (self.config.mutual_speed_threshold * 1.5)))
 
         # 3. Acceleration / burst score
         accel_score = min(1.0, max(0.0, max_accel / (self.config.mutual_accel_threshold * 1.5)))
 
         # 4. Volatility score
-        vol_score = min(1.0, max(0.0, volatility / 75.0))
+        vol_score = min(1.0, max(0.0, volatility / 60.0))
 
         raw = (0.30 * prox_score) + (0.30 * speed_score) + (0.25 * accel_score) + (0.15 * vol_score)
-        scaled = raw * (0.7 + 0.3 * det_conf)
+        scaled = raw * (0.75 + 0.25 * det_conf)
         return min(0.96, max(0.20, scaled))
 
     def get_state(self, id1: int, id2: int) -> Dict[str, Any]:
