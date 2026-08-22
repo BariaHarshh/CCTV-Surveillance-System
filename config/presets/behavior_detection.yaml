@@ -1,0 +1,51 @@
+# Behavior Detection Preset Settings
+
+# File Paths
+model_path: "models/yolov8n.pt"                          # YOLO model weights file
+video_path: "videos/stock/sample.mp4"                    # Input video source
+
+# Detection & Tracking
+confidence_threshold: 0.35              # Min detection confidence (0.0 - 1.0)
+tracker_type: "bytetrack.yaml"           # Multi-object tracker configuration
+frame_skip: 2                           # Frame skip cadence (1=every frame, 2=smooth 2x boost)
+
+# Behavior Detection Core Settings
+enabled: true                           # Enable/disable overall behavior analytics
+history_seconds: 3.0                    # Movement history memory duration (seconds)
+history_max_frames: 75                  # Max tracked frames stored per person
+track_inactivity_timeout_seconds: 2.0   # Time before purging lost person track
+camera_id: "CAM-01"                     # Surveillance camera identifier tag
+location: "Campus Grounds"              # Camera location/zone description
+
+# Fall Detection Settings
+fall:
+  enabled: true                         # Enable fall detection module
+  aspect_ratio_threshold: 1.0           # Body width/height ratio for horizontal posture
+  aspect_ratio_expansion_ratio: 1.7     # Relative body widening factor during fall
+  vertical_drop_ratio: 0.35             # Proportional drop in box height
+  vertical_velocity_threshold: 90.0     # Min downward speed (px/sec) to trigger fall
+  immobility_speed_threshold: 140.0     # Max speed on ground (filters sprinting vs fallen)
+  persistence_seconds: 0.9              # Seconds fallen posture must persist
+  confidence_threshold: 0.60            # Min confidence score for fall alert
+  cooldown_seconds: 5.0                 # Seconds cooldown between repeat alerts
+
+# Aggressive Movement Settings
+movement:
+  enabled: true                         # Enable aggressive movement detection
+  speed_threshold: 160.0                # Speed (px/sec) considered darting/running
+  acceleration_threshold: 220.0         # Acceleration (px/sec^2) for sudden bursts
+  direction_volatility_threshold: 55.0  # Heading variation angle (deg) for erratic paths
+  persistence_seconds: 0.8              # Seconds erratic motion must persist
+  confidence_threshold: 0.60            # Min confidence score for movement alert
+  cooldown_seconds: 4.0                 # Seconds cooldown between repeat alerts
+
+# Fight Detection Settings
+fight:
+  enabled: true                         # Enable fighting altercation detection
+  proximity_threshold: 140.0            # Max distance (px) between interacting persons
+  convergence_speed_threshold: 60.0     # Approach speed (px/sec) when closing in
+  mutual_speed_threshold: 110.0         # Combined movement speed during struggle
+  mutual_accel_threshold: 160.0         # Combined acceleration during struggle
+  persistence_seconds: 1.1              # Seconds close struggle must persist
+  confidence_threshold: 0.68            # Min confidence score for fight alert
+  cooldown_seconds: 6.0                 # Seconds cooldown between repeat alerts

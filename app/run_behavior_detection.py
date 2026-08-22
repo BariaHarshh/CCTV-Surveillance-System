@@ -10,7 +10,7 @@ import time
 import argparse
 
 # Ensure root repository directory is in sys.path
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
@@ -19,8 +19,7 @@ import config.config as config
 from features.crowd_detection import (
     PersonDetector,
     CountStabilizer,
-    CrowdDetector,
-    draw_crowd_detections
+    CrowdDetector
 )
 from features.behavior_detection import (
     BehaviorProcessor,
@@ -31,6 +30,7 @@ from features.behavior_detection.profiler import PerformanceProfiler
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="AI Campus Guard - Behaviour Detection Runner")
+    parser.add_argument("--preset", type=str, default="behavior_detection.yaml", help="Preset configuration YAML file")
     parser.add_argument("--video", type=str, default=None, help="Path to input video file or webcam index (e.g. 0)")
     parser.add_argument("--performance-mode", type=str, default="balanced", choices=["quality", "balanced", "performance"], help="Performance profile")
     parser.add_argument("--imgsz", type=int, default=None, help="Inference resolution override (e.g. 640, 512, 416)")
@@ -50,8 +50,8 @@ def main():
 
     args = parse_arguments()
 
-    # Load default or crowd preset configuration
-    config.load_preset("crowd_detection.yaml")
+    # Load preset configuration
+    config.load_preset(args.preset)
 
     # Resolve Video / Webcam Source
     if args.video is not None and args.video.isdigit():
@@ -104,7 +104,6 @@ def main():
     fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     # Initialize Crowd Stabilizer & Processor
     stabilizer = CountStabilizer(

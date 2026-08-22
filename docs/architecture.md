@@ -15,10 +15,16 @@ Video Stream / Camera Feed
             ↓
   Internal Track IDs (Maintained in Memory)
             ↓
-  Count Stabilization (Rolling Median & Drop Confirmation)
+  Count Stabilization & Behavioral Tracking Memory
             ↓
-  Crowd Detector Processor (Threshold & Persistence Timer)
-            ↓
+  ┌─────────────────────────────┴─────────────────────────────┐
+  │                                                           │
+  v                                                           v
+Crowd Detector Processor                       Behavior Processor
+(Threshold & Persistence Timer)               (Fall, Fight, Movement Engine)
+  │                                                           │
+  └─────────────────────────────┬─────────────────────────────┘
+                                ↓
   OpenCV Visualization HUD (UI Presentation Layer - Track IDs Hidden)
 ```
 
@@ -26,16 +32,16 @@ Video Stream / Camera Feed
 
 ## 🧩 Feature Extension Architecture
 
-The repository is organized so that new detection & analytics modules can be added independently without modifying existing modules:
+The repository is organized so that new detection & analytics modules operate independently:
 
 ```text
                                ┌── Crowd Detection Module (✅ Active)
                                │
-                               ├── Restricted Area Entry Detection (🚧 Planned)
+                               ├── Behavior Detection (Fall / Fight / Motion) (✅ Active)
                                │
-Computer Vision Base Layer ────┼── Abandoned Object Detection (🚧 Planned)
+Computer Vision Base Layer ────┼── Restricted Area Entry Detection (🚧 Planned)
 (YOLO + ByteTrack)             │
-                               ├── Behavior Detection (Fall / Fighting) (🚧 Planned)
+                               ├── Abandoned Object Detection (🚧 Planned)
                                │
                                └── Risk Assessment Engine (🚧 Planned)
 ```
@@ -44,5 +50,5 @@ Computer Vision Base Layer ────┼── Abandoned Object Detection (�
 
 ## 🔒 Privacy & Presentation Layer Design
 
-- **Internal Track IDs**: ByteTrack generates unique integer track IDs (`det["track_id"]`) in memory for object persistence, motion tracking, and count stabilization.
+- **Internal Track IDs**: ByteTrack generates unique integer track IDs (`det["track_id"]`) in memory for object persistence, motion tracking, and behavioral trajectory analysis.
 - **UI Masking**: On the visual output screen / video preview, track IDs are explicitly masked (`PERSON 92%`). Track IDs are never displayed to viewers, adhering to clean UI standards.

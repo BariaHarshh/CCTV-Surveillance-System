@@ -73,38 +73,55 @@ Videos are organized under the [`videos/`](videos/) directory:
 ```text
 videos/
 ├── input/    # Put your custom CCTV or test MP4 video files here
-├── stock/    # Contains pre-included stock test videos (sample.mp4)
-└── output/   # Generated output annotated videos are saved here
+└── stock/    # Contains pre-included stock test videos (sample.mp4)
 ```
 
 Stock videos (`sample.mp4`) are pre-packaged under `videos/stock/`.
 
 ---
 
-## Step 7 — Run Feature Modules
+## Step 7 — Run Active Feature Modules
 
 Each feature module has its dedicated runner script inside `app/`:
 
-### Run Crowd Detection Feature:
+### 1. Run Crowd Detection Module:
 ```bash
 python app/run_crowd_detection.py
 ```
-*(Or run `python app/main.py` which launches the default Crowd Detection module).*
+*(Or run `python app/main.py` which launches default Crowd Detection).*
+
+### 2. Run Behavior Detection Module (Fall, Fight & Movement):
+```bash
+python app/run_behavior_detection.py
+```
+
+#### Behavior Detection CLI Options:
+```bash
+# High Performance Mode (Lag-free processing for CPU)
+python app/run_behavior_detection.py --performance-mode performance
+
+# Quality Mode (640p resolution for highest precision)
+python app/run_behavior_detection.py --performance-mode quality
+
+# Force GPU CUDA or CPU execution
+python app/run_behavior_detection.py --device cuda
+python app/run_behavior_detection.py --device cpu
+
+# Debug UI telemetry mode
+python app/run_behavior_detection.py --ui-mode debug
+```
 
 ---
 
 ## Step 8 — Expected Screen Output
 
-- **OpenCV Window Title**: `"AI Campus Guard - Crowd Detection"`
-- **Bounding Boxes**: Green boxes surrounding detected persons.
-- **Labels**: `PERSON 92%` *(Track IDs are maintained internally by ByteTrack but hidden from the visual UI)*.
-- **Top-Left HUD Panel**:
-  ```text
-  RAW PEOPLE: X
-  STABLE PEOPLE: Y
-  THRESHOLD: 10
-  STATUS: NORMAL
-  ```
+### Crowd Detection:
+- **Window Title**: `"AI Campus Guard - Crowd Detection"`
+- **HUD Panel**: `RAW PEOPLE`, `STABLE PEOPLE`, `THRESHOLD`, `STATUS`.
+
+### Behavior Detection:
+- **Window Title**: `"AI Campus Guard - Behaviour Intelligence Monitor"`
+- **Telemetry HUD**: Active Alerts, Fall Alerts, Fight Alerts, Movement Volatility, and Performance FPS Profiler.
 
 Press **`Q`** key in the video preview window to stop playback cleanly.
 
@@ -112,11 +129,9 @@ Press **`Q`** key in the video preview window to stop playback cleanly.
 
 ## Step 9 — How to Change Video / Model / Settings
 
-Edit [`config/presets/crowd_detection.yaml`](config/presets/crowd_detection.yaml):
-
-- **Video**: Change `video_path: "videos/input/my_video.mp4"`
-- **Model**: Change `model_path: "models/yolov8s.pt"`
-- **Thresholds**: Adjust `person_threshold` or `persistence_seconds`.
+Edit presets in [`config/presets/`](config/presets/):
+- [`config/presets/crowd_detection.yaml`](config/presets/crowd_detection.yaml)
+- [`config/presets/behavior_detection.yaml`](config/presets/behavior_detection.yaml)
 
 ---
 
