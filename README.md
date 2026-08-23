@@ -1,6 +1,6 @@
 # AI Campus Guard 🛡️
 
-**AI Campus Guard** is an AI-powered security and surveillance system designed to monitor campus CCTV feeds in real time for safety incidents, high crowd density, abnormal human behaviors, unauthorized entry, and emergency situations.
+**AI Campus Guard** is an AI-powered security and surveillance system designed to monitor campus CCTV feeds in real time for safety incidents, high crowd density, abnormal human behaviors, unauthorized entry into restricted zones, and emergency situations.
 
 ---
 
@@ -10,7 +10,7 @@
 | :--- | :---: | :--- |
 | **Crowd Detection** | ✅ **Done** | Real-time person detection, ByteTrack tracking, count stabilization, and persistent crowd alert monitoring. |
 | **Behavior Detection** | ✅ **Done** | Real-time Fall Detection, Aggressive Movement Analysis, and Fighting/Altercation Detection. |
-| **Restricted Area Detection** | 🚧 *Planned* | Detect unauthorized entry into restricted campus zones using ROI masks. |
+| **Restricted Area Detection** | ✅ **Done** | Polygon ROI zone geometry checks, foot-point anchor analysis, and intrusion state machine tracking. |
 | **Abandoned Object Detection** | 🚧 *Planned* | Detect unattended bags or objects stationary for > threshold time. |
 | **Risk Assessment Engine** | 🚧 *Planned* | Real-time risk scoring & priority incident alerts. |
 
@@ -31,19 +31,21 @@ AI-Campus-Guard/
 ├── app/                      # Feature Application Runners
 │   ├── main.py               # Main Launcher
 │   ├── run_crowd_detection.py# Dedicated Crowd Detection Runner
-│   └── run_behavior_detection.py # Dedicated Behavior Detection Runner
+│   ├── run_behavior_detection.py # Dedicated Behavior Detection Runner
+│   └── run_restricted_area.py# Dedicated Restricted Area Detection Runner
 │
 ├── config/                   # Configuration & Preset System
 │   ├── config.py             # Global Configuration Manager
 │   └── presets/              # Feature Presets (YAML)
 │       ├── default.yaml
 │       ├── crowd_detection.yaml
-│       └── behavior_detection.yaml
+│       ├── behavior_detection.yaml
+│       └── restricted_area.yaml
 │
 ├── features/                 # Self-Contained Feature Modules
 │   ├── crowd_detection/      # ✅ Crowd Detection Feature Package
 │   ├── behavior_detection/   # ✅ Behavior Detection Feature Package
-│   ├── restricted_area/      # 🚧 Restricted Area Detection (Planned)
+│   ├── restricted_area/      # ✅ Restricted Area Detection Feature Package
 │   ├── abandoned_object/     # 🚧 Abandoned Object Detection (Planned)
 │   └── risk_assessment/      # 🚧 Risk Assessment Engine (Planned)
 │
@@ -92,13 +94,18 @@ python scripts/download_models.py
   python app/run_behavior_detection.py
   ```
 
+- **Run Restricted Area Detection Module (Polygon ROI Intrusion)**:
+  ```bash
+  python app/run_restricted_area.py
+  ```
+
 ---
 
 ## 🛠️ Technology Stack
 
 - **Python 3.10+**
 - **PyTorch**: Deep learning inference engine with CUDA/CPU auto-selection.
-- **OpenCV**: Video capture, frame rendering, and HUD overlays.
+- **OpenCV**: Video capture, polygon geometry testing (`cv2.pointPolygonTest`), frame rendering, and HUD overlays.
 - **Ultralytics YOLOv8**: Person detection.
 - **ByteTrack**: Multi-object tracking.
 - **PyYAML**: Modular preset configuration management.

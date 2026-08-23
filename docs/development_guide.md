@@ -4,44 +4,51 @@ Guide for developers adding new surveillance modules to the AI Campus Guard repo
 
 ---
 
+## 📁 Active Feature Packages
+
+1. **Crowd Detection**: `features/crowd_detection/` (Runner: `app/run_crowd_detection.py`)
+2. **Behavior Detection**: `features/behavior_detection/` (Runner: `app/run_behavior_detection.py`)
+3. **Restricted Area Detection**: `features/restricted_area/` (Runner: `app/run_restricted_area.py`)
+
+---
+
 ## 📁 Adding a New Feature Module
 
-When developing a new feature (e.g. Restricted Area Entry Detection):
+When developing a new feature (e.g. Abandoned Object Detection):
 
-### 1. Create Feature Package (`features/restricted_area/`)
+### 1. Create Feature Package (`features/abandoned_object/`)
 Create a self-contained sub-folder inside `features/`:
 
 ```text
 features/
-└── restricted_area/
+└── abandoned_object/
     ├── __init__.py
-    ├── detector.py
     ├── processor.py
     ├── utils.py
     └── README.md
 ```
 
-### 2. Create Feature Preset (`config/presets/restricted_area.yaml`)
+### 2. Create Feature Preset (`config/presets/abandoned_object.yaml`)
 Define default settings and paths for your feature:
 
 ```yaml
-# Restricted Area Detection Preset Settings
+# Abandoned Object Detection Preset Settings
 model_path: "models/yolov8n.pt"
 video_path: "videos/stock/sample.mp4"
 ```
 
-### 3. Create Dedicated Runner Script (`app/run_restricted_area.py`)
+### 3. Create Dedicated Runner Script (`app/run_abandoned_object.py`)
 Create an independent runner script inside `app/`:
 
 ```python
 """
-AI Campus Guard - Restricted Area Feature Runner
+AI Campus Guard - Abandoned Object Feature Runner
 """
 import config.config as config
-from features.restricted_area import RestrictedAreaDetector
+from features.abandoned_object import AbandonedObjectProcessor
 
 def main():
-    config.load_preset("restricted_area.yaml")
+    config.load_preset("abandoned_object.yaml")
     # Feature processing loop...
 
 if __name__ == "__main__":
@@ -55,13 +62,16 @@ if __name__ == "__main__":
 Team members can run their respective feature modules independently:
 
 ```bash
-# Crowd Detection
+# 1. Crowd Detection Module
 python app/run_crowd_detection.py
 
-# Restricted Area Entry Detection (Future)
+# 2. Behavior Detection Module (Fall, Fight & Movement)
+python app/run_behavior_detection.py
+
+# 3. Restricted Area Detection Module (Polygon ROI Intrusion)
 python app/run_restricted_area.py
 
-# Abandoned Object Detection (Future)
+# 4. Abandoned Object Detection (Future)
 python app/run_abandoned_object.py
 ```
 

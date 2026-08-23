@@ -72,8 +72,8 @@ This script downloads `yolov8n.pt` into the [`models/`](models/) directory.
 Videos are organized under the [`videos/`](videos/) directory:
 ```text
 videos/
-├── input/    # Put your custom CCTV or test MP4 video files here
-└── stock/    # Contains pre-included stock test videos (sample.mp4)
+├── input/    # Put your custom CCTV MP4 video files here
+└── stock/    # Pre-included stock test videos (sample.mp4)
 ```
 
 Stock videos (`sample.mp4`) are pre-packaged under `videos/stock/`.
@@ -95,20 +95,9 @@ python app/run_crowd_detection.py
 python app/run_behavior_detection.py
 ```
 
-#### Behavior Detection CLI Options:
+### 3. Run Restricted Area Detection Module (Polygon ROI Intrusion):
 ```bash
-# High Performance Mode (Lag-free processing for CPU)
-python app/run_behavior_detection.py --performance-mode performance
-
-# Quality Mode (640p resolution for highest precision)
-python app/run_behavior_detection.py --performance-mode quality
-
-# Force GPU CUDA or CPU execution
-python app/run_behavior_detection.py --device cuda
-python app/run_behavior_detection.py --device cpu
-
-# Debug UI telemetry mode
-python app/run_behavior_detection.py --ui-mode debug
+python app/run_restricted_area.py
 ```
 
 ---
@@ -123,6 +112,10 @@ python app/run_behavior_detection.py --ui-mode debug
 - **Window Title**: `"AI Campus Guard - Behaviour Intelligence Monitor"`
 - **Telemetry HUD**: Active Alerts, Fall Alerts, Fight Alerts, Movement Volatility, and Performance FPS Profiler.
 
+### Restricted Area Detection:
+- **Window Title**: `"AI Campus Guard - Restricted Area Monitor"`
+- **Visual Features**: Polygon ROI Zone outlines (Green=Secure, Red=Alert), Intruder bounding boxes, foot anchor points, and glassmorphic HUD dashboard (`STATUS: SECURE / ALERT`).
+
 Press **`Q`** key in the video preview window to stop playback cleanly.
 
 ---
@@ -132,6 +125,7 @@ Press **`Q`** key in the video preview window to stop playback cleanly.
 Edit presets in [`config/presets/`](config/presets/):
 - [`config/presets/crowd_detection.yaml`](config/presets/crowd_detection.yaml)
 - [`config/presets/behavior_detection.yaml`](config/presets/behavior_detection.yaml)
+- [`config/presets/restricted_area.yaml`](config/presets/restricted_area.yaml)
 
 ---
 
