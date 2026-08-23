@@ -36,4 +36,5 @@ videos/stock/*
 !videos/stock/README.md
 !videos/stock/sample.mp4
 !videos/stock/sample2.mp4
+!videos/stock/sample3.mp4
 !videos/stock/.gitkeep
