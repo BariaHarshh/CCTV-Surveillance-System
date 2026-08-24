@@ -41,10 +41,15 @@ class RestrictedAreaProcessor:
         self.recent_active_events: List[Tuple[RestrictedAreaEvent, float]] = []
         self.event_display_ttl: float = 4.0  # Seconds event stays in active HUD
 
+    def set_zones(self, zone_configs: List[Dict[str, Any]], frame_shape: Optional[Tuple[int, int]] = None):
+        """Dynamically updates active restricted zones at runtime."""
+        self.zone_manager.load_zones(zone_configs, frame_shape=frame_shape)
+
     def update(
         self,
         tracked_persons: List[Dict[str, Any]],
-        current_time: Optional[float] = None
+        current_time: Optional[float] = None,
+        frame_shape: Optional[Tuple[int, int]] = None
     ) -> Dict[str, Any]:
         """
         Main frame update call.
@@ -52,6 +57,7 @@ class RestrictedAreaProcessor:
         Args:
             tracked_persons: List of tracked person dictionaries from YOLO/ByteTrack.
             current_time: Current video timestamp in seconds (or wall-clock time if None).
+            frame_shape: Optional (width, height) for normalized coordinate resolution.
 
         Returns:
             Dict containing:
@@ -62,6 +68,8 @@ class RestrictedAreaProcessor:
                 - 'summary': High-level statistics
         """
         now = current_time if current_time is not None else time.time()
+        if frame_shape is not None:
+            self.zone_manager.update_frame_shape(frame_shape)
 
         # 1. Update Intrusion Tracker
         new_events = self.intrusion_tracker.update(

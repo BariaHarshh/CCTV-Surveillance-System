@@ -1,0 +1,66 @@
+# ==============================================================================
+# AI Campus Guard - Risk Assessment Engine Configuration Preset
+# ==============================================================================
+
+# Core Paths
+model_path: "models/yolov8n.pt"
+video_path: "videos/stock/sample.mp4"
+output_path: null
+
+# Detection & Pipeline Parameters
+confidence_threshold: 0.35
+tracker_type: "bytetrack.yaml"
+frame_skip: 2
+inference_size: 640
+
+# Risk Assessment Feature Settings
+enabled: true
+
+# Risk Classification Boundaries
+low_max: 24
+medium_max: 49
+high_max: 74
+critical_max: 100
+
+# Base Event Risk Weights (0 - 100)
+event_weights:
+  crowd_detected: 30
+  aggressive_movement: 55
+  fall: 65
+  potential_fall: 65
+  potential_violent_activity: 80
+  zone_breach: 60
+  restricted_area_entry: 60
+  zone_exit: 10
+  potential_abandoned_object: 60
+  prolonged_abandoned_object_escalation: 85
+
+# Object-Specific Risk Weights
+object_weights:
+  backpack: 70
+  handbag: 65
+  suitcase: 80
+  bottle: 20
+
+# Zone Severity Risk Weights
+zone_weights:
+  low: 40
+  medium: 60
+  high: 80
+  critical: 90
+
+# Threat Duration Persistence Settings
+persistence_enabled: true
+persistence_rate_per_10s: 5.0
+max_persistence_bonus: 15.0
+
+# Multi-Event Escalation Settings
+escalation_enabled: true
+escalation_time_window_seconds: 15.0
+
+# Threat Inactivity Decay & Auto-Resolution
+decay_enabled: true
+decay_rate_per_second: 2.0
+inactive_timeout_seconds: 6.0
+resolution_timeout_seconds: 18.0
+max_incident_history: 10
