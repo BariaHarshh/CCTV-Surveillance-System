@@ -27,7 +27,7 @@ from features.risk_assessment import (
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="AI Campus Guard - Risk Management Central Orchestrator")
-    parser.add_argument("--preset", type=str, default="risk_management_full.yaml", help="Preset configuration YAML file (e.g. risk_management_full.yaml, risk_management_behavior.yaml, risk_management_lightweight.yaml, risk_management_demo.yaml)")
+    parser.add_argument("--preset", type=str, default="risk_assessment.yaml", help="Preset configuration YAML file (e.g. risk_assessment.yaml)")
     parser.add_argument("--video", type=str, default=None, help="Path to input video file or webcam index (e.g. 0)")
     parser.add_argument("--performance-mode", type=str, default="balanced", choices=["quality", "balanced", "performance"], help="Performance profile")
     parser.add_argument("--imgsz", type=int, default=None, help="Inference resolution override (e.g. 640, 512, 416)")
@@ -38,6 +38,7 @@ def parse_arguments():
     parser.add_argument("--max-frames", type=int, default=None, help="Optional max frames limit for automated testing")
     parser.add_argument("--scenario", type=str, default=None, choices=["crowd", "fight", "breach", "luggage", "compound"], help="Optional scenario injection for rapid evaluation")
     parser.add_argument("--profile", action="store_true", help="Print real-time performance breakdown")
+    parser.add_argument("--multi-cam", action="store_true", help="Run 4-Camera Video Quad Grid Surveillance Dashboard")
     return parser.parse_known_args()[0]
 
 def main():
@@ -60,6 +61,83 @@ def main():
                 preset_data = yaml.safe_load(f) or {}
         except Exception as e:
             print(f"[WARNING] Could not read preset YAML: {e}")
+
+    # Configure Performance Profile
+    if args.performance_mode == "quality":
+        default_imgsz = 640
+    elif args.performance_mode == "performance":
+        default_imgsz = 416
+    else:  # balanced
+        default_imgsz = 512
+
+    imgsz = args.imgsz if args.imgsz is not None else preset_data.get("inference_size", default_imgsz)
+
+    # -------------------------------------------------------------
+    # Multi-Camera 2x2 Quad Grid Surveillance Mode (--multi-cam)
+    # -------------------------------------------------------------
+    if args.multi_cam:
+        from features.risk_assessment import MultiCameraOrchestrator
+        print("\n===========================================")
+        print("   MULTI-CAMERA 2X2 QUAD SURVEILLANCE GUI  ")
+        print("===========================================")
+        print("Camera Matrix:")
+        print("  • CAM-01 : Canteen Quad      (Crowd Density)")
+        print("  • CAM-02 : Hostel Corridor   (Behavior / Fight / Fall)")
+        print("  • CAM-03 : Server Room       (Restricted Polygon Zone)")
+        print("  • CAM-04 : Main Lobby        (Abandoned Luggage)")
+        print("-------------------------------------------")
+        print("Press 'Q' in the Video Quad Grid to quit.")
+        print("===========================================\n")
+
+        multi_orch = MultiCameraOrchestrator(
+            device=args.device,
+            imgsz=imgsz,
+            enable_profiling=args.profile
+        )
+
+        win_name = "AI Campus Guard - 4-Camera Master Quad Grid"
+        if not args.headless:
+            cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+            cv2.resizeWindow(win_name, 1280, 720)
+
+        frame_idx = 0
+        fps_tr = RollingFPSTracker(window_size=30)
+
+        try:
+            while True:
+                t0 = time.time()
+                frame_idx += 1
+                curr_t = frame_idx / 25.0
+                rfps, _ = fps_tr.update()
+
+                out = multi_orch.process_multi_cam_step(current_time=curr_t, frame_index=frame_idx)
+                quad_grid = out["quad_grid"]
+                risk_out = out["risk_output"]
+
+                for alert in risk_out.get("new_alerts", []):
+                    print(f"[{alert['risk_level']} ALERT] {alert['title']} | Score: {alert['risk_score']}/100 | Source: {alert['sources']}")
+
+                if args.profile and (frame_idx % 30 == 0):
+                    print(multi_orch.profiler.format_report())
+
+                if not args.headless:
+                    cv2.imshow(win_name, quad_grid)
+                    proc_ms = (time.time() - t0) * 1000.0
+                    w_ms = max(1, int(40.0 - proc_ms))
+                    k = cv2.waitKey(w_ms) & 0xFF
+                    if k in (ord('q'), ord('Q')):
+                        print("[INFO] Multi-Camera playback stopped by user.")
+                        break
+
+                if args.max_frames and frame_idx >= args.max_frames:
+                    print(f"[INFO] Multi-Cam mode reached max requested frames ({args.max_frames}). Stopping.")
+                    break
+        finally:
+            multi_orch.release()
+            if not args.headless:
+                cv2.destroyAllWindows()
+            print(f"[INFO] Multi-Camera Surveillance session ended cleanly ({frame_idx} frames).")
+        return
 
     # Resolve Video / Webcam Source
     if args.video is not None and args.video.isdigit():

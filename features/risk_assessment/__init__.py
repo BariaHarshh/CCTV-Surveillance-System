@@ -11,6 +11,7 @@ from .escalation import EscalationEngine
 from .incident import Incident, IncidentManager
 from .processor import RiskAssessmentProcessor
 from .orchestrator import RiskManagementOrchestrator
+from .multi_cam_orchestrator import MultiCameraOrchestrator
 from .interactive_controller import (
     InteractiveMenuController,
     points_to_normalized,

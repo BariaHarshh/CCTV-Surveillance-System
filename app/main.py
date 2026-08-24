@@ -16,12 +16,14 @@ def main():
         "--feature",
         type=str,
         default="risk",
-        choices=["risk", "crowd", "behavior", "abandoned", "restricted"],
-        help="Feature module to launch: 'risk' (Central Risk Assessment), 'crowd', 'behavior', 'abandoned', 'restricted'"
+        choices=["risk", "multi", "crowd", "behavior", "abandoned", "restricted"],
+        help="Feature module to launch: 'risk' (Central Risk Assessment), 'multi' (4-Camera Quad Grid), 'crowd', 'behavior', 'abandoned', 'restricted'"
     )
     args, unknown = parser.parse_known_args()
 
-    if args.feature == "risk":
+    if args.feature == "multi":
+        from app.run_multi_camera import main as run_feature
+    elif args.feature == "risk":
         from app.run_risk_management import main as run_feature
     elif args.feature == "behavior":
         from app.run_behavior_detection import main as run_feature

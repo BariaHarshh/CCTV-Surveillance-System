@@ -1,10 +1,6 @@
 # Behavior Detection Preset Settings (Calibrated for High Accuracy)
 
-# File Paths
 model_path: "models/yolov8n.pt"                          # YOLO model weights file
-video_path: "videos/stock/sample.mp4"                    # Input video source
-
-# Detection & Tracking
 confidence_threshold: 0.35              # Min detection confidence (0.0 - 1.0)
 tracker_type: "bytetrack.yaml"           # Multi-object tracker configuration
 frame_skip: 2                           # Frame skip cadence (1=every frame, 2=smooth 2x boost)
@@ -14,8 +10,14 @@ enabled: true                           # Enable/disable overall behavior analyt
 history_seconds: 3.0                    # Movement history memory duration (seconds)
 history_max_frames: 75                  # Max tracked frames stored per person
 track_inactivity_timeout_seconds: 2.0   # Time before purging lost person track
-camera_id: "CAM-01"                     # Surveillance camera identifier tag
-location: "Campus Grounds"              # Camera location/zone description
+
+# Assigned Camera Feeds
+cameras:
+  - camera_id: "CAM-02"
+    name: "Hostel Corridor"
+    location: "Corridor Wing B"
+    video_path: "videos/stock/sample2.mp4"
+    enabled: true
 
 # Fall Detection Settings (Calibrated for High Recall on Fallen Postures)
 fall:

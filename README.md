@@ -1,132 +1,219 @@
 # AI Campus Guard 🛡️
 
-**AI Campus Guard** is an enterprise-grade AI-powered surveillance and unified risk intelligence platform designed to monitor campus CCTV feeds in real time. It detects critical safety incidents, human behavioral anomalies, unattended objects, and unauthorized zone intrusions, feeding a centralized **Campus Risk Assessment & Orchestration Engine**.
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-orange.svg)
+![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-green.svg)
+![Build Status](https://img.shields.io/badge/tests-76%2F76%20passed-brightgreen.svg)
+![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)
+
+**AI Campus Guard** is a real-time computer vision and unified threat intelligence system designed for automated CCTV surveillance across university and enterprise campuses. It integrates multi-stream object tracking, human behavioral analytics, polygon-based restricted area intrusion detection, and unattended item monitoring into a centralized **Unified Risk Engine**.
 
 ---
 
-## 🌟 Feature Status
+## 📸 Core Features
 
-| Feature | Status | Description |
-| :--- | :---: | :--- |
-| **Crowd Detection** | ✅ **Done** | Real-time person detection, ByteTrack tracking, count stabilization, and persistent crowd alert monitoring. |
-| **Behavior Detection** | ✅ **Done** | Real-time Fall Detection, Aggressive Movement Analysis, and Fighting/Altercation Detection. |
-| **Restricted Area Detection** | ✅ **Done** | Polygon ROI zone geometry checks, multi-anchor foot-point analysis, and intrusion state machine tracking. |
-| **Abandoned Object Detection** | ✅ **Done** | Multi-class person and object detection, owner proximity tracking, and temporal unattended duration escalation. |
-| **Risk Assessment Orchestrator** | ✅ **Done** | Centralized 0–100 threat scoring, incident lifecycle (inactivity decay, cooldown deduplication), interactive GUI menu, and security dispatch alerts. |
+* **🎥 Multi-Camera 2x2 Quad Grid (`app/run_multi_camera.py`)**  
+  Stitches 4 live CCTV camera streams into a single $1280 \times 720$ surveillance grid. Renders per-camera threat badges alongside a real-time campus-wide threat level header.
+* **🧠 Unified Risk Engine (`app/run_risk_management.py`)**  
+  Aggregates multi-source events into a normalized threat score (0–100) using exponential decay, cooldown deduplication, and compound threat multipliers.
+* **👥 Crowd Density & Headcount Monitoring (`app/run_crowd_detection.py`)**  
+  Real-time person tracking via ByteTrack with median filter headcount stabilization and sustained density alert persistence checks.
+* **💥 Human Behavior Analytics (`app/run_behavior_detection.py`)**  
+  Detects sudden falls, physical altercations/struggles, and erratic fleeing/sprinting using trajectory kinematics and bounding-box aspect ratio dynamics.
+* **🚨 Restricted Area Intrusion (`app/run_restricted_area.py`)**  
+  Polygon ROI intrusion detection using multi-anchor foot-point geometry tests (`cv2.pointPolygonTest`) and live interactive polygon drawing (`R` key).
+* **🧳 Abandoned Object Detection (`app/run_abandoned_object.py`)**  
+  Monitors unattended luggage and personal items, tracks owner proximity, and escalates prolonged unattended items to staff dispatch workflows.
 
 ---
 
-## 🏗️ Repository Architecture
+## 🏗️ System Architecture
+
+```text
+                     ┌────────────────────────────────────────────────────────┐
+                     │           CCTV CAMERA STREAMS (CAM-01 .. CAM-04)       │
+                     └───────────────────────────┬────────────────────────────┘
+                                                 │
+                                                 ▼
+                     ┌────────────────────────────────────────────────────────┐
+                     │          SHARED YOLOv8 + BYTETRACK DETECTOR            │
+                     └───────────────────────────┬────────────────────────────┘
+                                                 │
+      ┌──────────────────────┬───────────────────┴───────────────────┬──────────────────────┐
+      │                      │                                       │                      │
+      ▼                      ▼                                       ▼                      ▼
+┌─────────────┐    ┌───────────────────┐                   ┌───────────────────┐  ┌───────────────────┐
+│ Canteen     │    │ Hostel Corridor   │                   │ Server Room       │  │ Main Lobby        │
+│ Crowd Module│    │ Behavior Module   │                   │ Restricted Area   │  │ Abandoned Luggage │
+└──────┬──────┘    └─────────┬─────────┘                   └─────────┬─────────┘  └─────────┬─────────┘
+       │                     │                                       │                      │
+       └─────────────────────┼───────────────────────────────────────┴──────────────────────┘
+                             │
+                             ▼
+              ┌─────────────────────────────┐
+              │ EVENT NORMALIZER & ADAPTER  │
+              └──────────────┬──────────────┘
+                             │
+                             ▼
+              ┌─────────────────────────────┐
+              │   CENTRAL RISK ENGINE       │
+              │  Score: 0-100 (Decay/Cooldwn)│
+              └──────────────┬──────────────┘
+                             │
+                             ▼
+              ┌─────────────────────────────┐
+              │ 2x2 VIDEO QUAD DASHBOARD    │
+              └─────────────────────────────┘
+```
+
+---
+
+## 📁 Repository Structure
 
 ```text
 AI-Campus-Guard/
+├── app/                              # Application Launchers & Feature Runners
+│   ├── main.py                       # Unified CLI Launcher (--feature multi|risk|crowd...)
+│   ├── run_multi_camera.py           # 🌟 4-Camera Video Quad Grid Dashboard Runner
+│   ├── run_risk_management.py        # Single-Stream Master Risk Engine Runner
+│   ├── run_crowd_detection.py        # Crowd Density Subsystem Runner
+│   ├── run_behavior_detection.py     # Behavior Analytics Subsystem Runner
+│   ├── run_restricted_area.py        # Restricted Area Intrusion Runner
+│   └── run_abandoned_object.py       # Abandoned Object Subsystem Runner
 │
-├── README.md                 # Project Overview & Quick Start
-├── project.md                # 🌟 Comprehensive Technical Documentation & Changelog
-├── HOW_TO_RUN.md             # Execution & Performance Tuning Guide
-├── GITHUB_SETUP.md           # Git Collaboration & Workflow Guide
-├── requirements.txt          # Python Dependencies
+├── config/                           # Modular Configuration System
+│   ├── config.py                     # Global Constants & Base Paths
+│   ├── saved_zones.yaml              # Saved Polygon ROI Coordinates
+│   └── presets/                      # Clean Feature Configuration Presets
+│       ├── risk_assessment.yaml      # Master Risk Engine Scoring Weights & Thresholds
+│       ├── crowd_detection.yaml      # Crowd Thresholds & Camera Stream Assignments
+│       ├── behavior_detection.yaml   # Kinematics & Fight/Fall Detection Thresholds
+│       ├── restricted_area.yaml      # Polygon ROI Zones & Camera Assignments
+│       └── abandoned_object.yaml     # Luggage Rules & Duty Staff Directory
 │
-├── app/                      # Application Entry Points & Runners
-│   ├── run_risk_management.py# 🌟 Master Orchestrated Surveillance Runner
-│   ├── run_abandoned_object.py# Dedicated Abandoned Object Runner
-│   ├── run_risk_assessment.py# Dedicated Risk Assessment Engine Runner
-│   ├── run_crowd_detection.py# Dedicated Crowd Detection Runner
-│   ├── run_behavior_detection.py # Dedicated Behavior Detection Runner
-│   └── run_restricted_area.py# Dedicated Restricted Area Detection Runner
+├── features/                         # Core Machine Learning Feature Packages
+│   ├── crowd_detection/              # Headcount Stabilization & Density Processor
+│   ├── behavior_detection/           # Fall, Fight & Movement Kinematics Engine
+│   ├── restricted_area/              # Polygon ROI Geometry & Intrusion Tracker
+│   ├── abandoned_object/             # Multi-Object Tracker & Owner Proximity Engine
+│   └── risk_assessment/              # Central Risk Engine & Multi-Cam Orchestrator
 │
-├── config/                   # Configuration & Preset System
-│   ├── config.py             # Global Configuration Constants
-│   ├── saved_zones.yaml      # Saved Restricted Zone Geometry
-│   └── presets/              # Performance & Operational Presets (YAML)
-│       ├── risk_management_full.yaml
-│       ├── risk_management_balanced.yaml
-│       ├── risk_management_high_accuracy.yaml
-│       ├── risk_management_high_performance.yaml
-│       ├── risk_management_demo.yaml
-│       ├── risk_management_behavior.yaml
-│       └── risk_management_security.yaml
-│
-├── features/                 # Self-Contained Feature Modules
-│   ├── crowd_detection/      # ✅ Crowd Headcount & Surge Package
-│   ├── behavior_detection/   # ✅ Fall, Fight & Movement Package
-│   ├── abandoned_object/     # ✅ MultiObjectDetector & Luggage Proximity Package
-│   ├── restricted_area/      # ✅ Polygon ROI Intrusion Package
-│   └── risk_assessment/      # ✅ Central Risk Engine, Bounded HUD & Profiler
-│
-├── models/                   # YOLO Model Weights (yolov8n.pt)
-├── videos/                   # Input & Stock Test Video Storage
-├── tests/                    # 76 Automated Unit & Integration Tests
-└── docs/                     # Architecture & Developer Documentation
+├── models/                           # Model Weights (yolov8n.pt)
+├── videos/                           # Stock Video Feeds for Testing
+├── tests/                            # 76 Automated Unit & Integration Tests
+└── project.md                        # Technical Documentation & System Specifications
 ```
 
 ---
 
-## 🚀 Quick Start Guide
+## 🚀 Quick Start
 
-### 1. Activate Virtual Environment (Windows)
+### 1. Prerequisites & Environment Setup
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-```
+# Clone the repository
+git clone https://github.com/your-org/AI-Campus-Guard.git
+cd "AI-Campus-Guard"
 
-### 2. Install Dependencies
-```bash
+# Create and activate virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1   # On Windows
+# source .venv/bin/activate    # On Linux/macOS
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 3. Run the Master Risk Management Surveillance System
-You do **not** need to start separate feature runners. The **Risk Management Master Runner** initializes and synchronizes all enabled detection modules automatically:
+### 2. Execution Commands
 
+#### Launch 4-Camera Video Quad Dashboard (Recommended)
 ```powershell
-# 1. Balanced Mode (Recommended Daily Default — ~26 FPS on CPU)
-python app/run_risk_management.py --preset risk_management_balanced.yaml --video videos/stock/sample.mp4
+python app/run_multi_camera.py
+```
 
-# 2. High Performance Mode (Lightweight imgsz=416 — 60-80+ FPS)
-python app/run_risk_management.py --preset risk_management_high_performance.yaml --video videos/stock/sample.mp4
+#### Launch Single-Stream Master Risk Dashboard
+```powershell
+python app/run_risk_management.py
+```
 
-# 3. High Accuracy Mode (Full resolution imgsz=640)
-python app/run_risk_management.py --preset risk_management_high_accuracy.yaml --video videos/stock/sample.mp4
+#### Launch Individual Subsystem Runners
+```powershell
+python app/run_crowd_detection.py
+python app/run_behavior_detection.py
+python app/run_restricted_area.py
+python app/run_abandoned_object.py
+```
 
-# 4. With Real-Time Latency Profiler & Telemetry
-python app/run_risk_management.py --preset risk_management_balanced.yaml --video videos/stock/sample.mp4 --profile
+#### Launch via Unified CLI Launcher
+```powershell
+python app/main.py --feature multi
 ```
 
 ---
 
-## 🎮 Interactive Keyboard Controls in Video Window
+## ⚙️ Configuration & Preset System
+
+System configuration is organized into modular YAML files located in [`config/presets/`](file:///D:/My%20Github%20Projects/AI%20Campus%20Guard/config/presets/).
+
+Each feature configuration file manages its own camera feeds, enabling clean per-feature camera assignments:
+
+```yaml
+# config/presets/crowd_detection.yaml
+enabled: true
+cameras:
+  - camera_id: "CAM-01"
+    name: "Canteen Quad"
+    location: "Campus Central Canteen"
+    video_path: "videos/stock/sample.mp4"
+    enabled: true
+    person_threshold: 6
+    persistence_seconds: 2.0
+```
+
+Global event scoring weights are managed in [`config/presets/risk_assessment.yaml`](file:///D:/My%20Github%20Projects/AI%20Campus%20Guard/config/presets/risk_assessment.yaml):
+
+```yaml
+# Incident Scoring Weights (0-100 Scale)
+risk_weights:
+  fight: 45.0               # Violent altercation (+45 pts)
+  restricted_breach: 40.0   # Restricted area breach (+40 pts)
+  fall: 35.0                # Fallen person (+35 pts)
+  abandoned_object: 30.0    # Unattended luggage (+30 pts)
+  aggressive_movement: 20.0 # Erratic sprinting (+20 pts)
+  crowd_surge: 15.0         # Crowd headcount surge (+15 pts)
+
+risk_decay_rate: 5.0        # Points decayed per second during idle state
+compound_threat_multiplier: 1.25 # Multiplier when 2+ threats occur simultaneously
+```
+
+---
+
+## 🎮 Interactive GUI Keybindings
+
+When running any surveillance stream with interactive window enabled:
 
 | Key | Action | Description |
 | :---: | :--- | :--- |
-| **`M`** | **Toggle System Controls Menu** | Opens side panel to toggle individual detection features ON/OFF in real time and save/load zones. |
-| **`R`** | **Toggle Polygon Drawing Mode** | Allows interactive restricted zone creation by clicking vertices on the live video stream. |
-| **`P`** | **Toggle Performance HUD Card** | Displays real-time per-subsystem execution latencies (YOLO, Behaviour, Objects, Risk, UI) and processing FPS. |
-| **`ENTER`** | **Finish Polygon** | Completes and activates the drawn restricted area zone. |
-| **`BACKSPACE`**| **Undo Point** | Removes the last drawn vertex point. |
-| **`ESC`** | **Cancel Drawing** | Exits polygon drawing mode without saving. |
-| **`Q`** | **Quit** | Gracefully terminates surveillance stream. |
+| **`M`** | **System Menu** | Toggle real-time feature switches, add zones, and load saved configs. |
+| **`R`** | **Draw Polygon** | Enter interactive polygon drawing mode to set up a new restricted area zone. |
+| **`P`** | **Telemetry HUD** | Toggle real-time latency profiling and FPS card. |
+| **`ENTER`** | **Save Zone** | Complete current polygon drawing and register zone. |
+| **`BACKSPACE`** | **Undo Point** | Delete last drawn polygon vertex point. |
+| **`ESC`** | **Cancel** | Exit polygon drawing mode without saving. |
+| **`Q`** | **Quit** | Gracefully close video stream and release hardware resources. |
 
 ---
 
-## ⚡ Performance Presets Matrix
+## 🧪 Test Suite & Verification
 
-| Preset | imgsz | Person Cadence | Behaviour Cadence | Object Cadence | CPU Processing FPS |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **`risk_management_full.yaml`** | `640` | Every frame | Every $2$ frames | Every $2$ frames | $\sim 20\text{ FPS}$ |
-| **`risk_management_high_accuracy.yaml`** | `640` | Every frame | Every frame | Every $2$ frames | $\sim 18\text{ FPS}$ |
-| **`risk_management_balanced.yaml`** | `512` | Every frame | Every $2$ frames | Every $3$ frames | **$\sim 26\text{ FPS}$** *(Default)* |
-| **`risk_management_high_performance.yaml`**| `416` | Every $2$ frames | Every $3$ frames | Every $4$ frames | **$\sim 85\text{ FPS}$** |
-
----
-
-## 🧪 Automated Testing
-Run the complete test suite containing **76 automated unit and integration tests**:
+Run the automated test suite covering **76 unit and integration test cases**:
 
 ```powershell
 python -m unittest discover tests
 ```
+
+**Expected Test Output**:
 ```text
-Ran 76 tests in 2.973s
+Ran 76 tests in 3.931s
 OK
 ```
 
@@ -134,20 +221,15 @@ OK
 
 ## 🛠️ Technology Stack
 
-- **Python 3.10+**
-- **PyTorch**: Deep learning inference engine with CUDA/CPU auto-detection and FP16 acceleration.
-- **Ultralytics YOLOv8**: Single-pass multi-class person and object detection with confidence hysteresis.
-- **ByteTrack**: Multi-object tracking with 20-frame occlusion recovery buffer.
-- **OpenCV**: Vector geometry testing (`cv2.pointPolygonTest`), video I/O, alpha-blended rendering, and responsive UI layout.
-- **PyYAML**: Modular configuration preset management.
+* **Language**: Python 3.10+
+* **Deep Learning Framework**: PyTorch (CUDA / CPU auto-switching)
+* **Object Detection Engine**: Ultralytics YOLOv8
+* **Multi-Object Tracking**: ByteTrack
+* **Computer Vision**: OpenCV (Vector math, polygon geometry, alpha-blended rendering)
+* **Configuration & Storage**: PyYAML
 
 ---
 
-## 📑 Documentation Links
+## 📄 License
 
-- 📘 [project.md](project.md) – Comprehensive project documentation, technical architecture, and recent updates.
-- 📖 [HOW_TO_RUN.md](HOW_TO_RUN.md) – Step-by-step setup, execution, performance tuning, and troubleshooting guide.
-- 🐙 [GITHUB_SETUP.md](GITHUB_SETUP.md) – Git setup, branch workflow, and pull request guide for team members.
-- 📐 [Architecture Documentation](docs/architecture.md) – Technical pipeline & system architecture.
-- 👥 [Crowd Detection Guide](docs/crowd_detection.md) – Algorithmic breakdown of count stabilization and threshold logic.
-- 👩‍💻 [Development Guide](docs/development_guide.md) – Guidelines for adding new feature modules.
+This project is licensed under the MIT License - see the LICENSE file for details.
