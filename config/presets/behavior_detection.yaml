@@ -11,7 +11,7 @@ history_seconds: 3.0                    # Movement history memory duration (seco
 history_max_frames: 75                  # Max tracked frames stored per person
 track_inactivity_timeout_seconds: 2.0   # Time before purging lost person track
 
-# Assigned Camera Feeds
+# Assigned Camera Feeds add new cameras here
 cameras:
   - camera_id: "CAM-02"
     name: "Hostel Corridor"

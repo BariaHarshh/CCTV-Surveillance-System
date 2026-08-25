@@ -18,7 +18,7 @@ stationary_window_seconds: 2.0      # Duration required to confirm stationary st
 person_proximity_threshold_px: 130.0 # Max pixel distance from object center to nearest person
 stale_track_timeout_seconds: 5.0    # Seconds before deleting a lost object track history
 
-# Assigned Camera Feeds
+# Assigned Camera Feeds add new cameras here 
 cameras:
   - camera_id: "CAM-04"
     name: "Main Lobby"

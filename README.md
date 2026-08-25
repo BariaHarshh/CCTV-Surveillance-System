@@ -185,21 +185,6 @@ risk_decay_rate: 5.0        # Points decayed per second during idle state
 compound_threat_multiplier: 1.25 # Multiplier when 2+ threats occur simultaneously
 ```
 
----
-
-## 🎮 Interactive GUI Keybindings
-
-When running any surveillance stream with interactive window enabled:
-
-| Key | Action | Description |
-| :---: | :--- | :--- |
-| **`M`** | **System Menu** | Toggle real-time feature switches, add zones, and load saved configs. |
-| **`R`** | **Draw Polygon** | Enter interactive polygon drawing mode to set up a new restricted area zone. |
-| **`P`** | **Telemetry HUD** | Toggle real-time latency profiling and FPS card. |
-| **`ENTER`** | **Save Zone** | Complete current polygon drawing and register zone. |
-| **`BACKSPACE`** | **Undo Point** | Delete last drawn polygon vertex point. |
-| **`ESC`** | **Cancel** | Exit polygon drawing mode without saving. |
-| **`Q`** | **Quit** | Gracefully close video stream and release hardware resources. |
 
 ---
 

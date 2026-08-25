@@ -147,19 +147,6 @@ Ran 76 tests in 2.973s
 OK
 ```
 
----
-
-## 💻 Keyboard Shortcuts in Surveillance Window
-
-| Key | Action |
-| :---: | :--- |
-| **`M`** | Toggle System Controls Menu (Feature switches, Add Zone, Save/Load) |
-| **`R`** | Toggle Interactive Polygon Drawing Mode |
-| **`P`** | Toggle Real-Time Performance & Latency Telemetry Card |
-| **`ENTER`** | Complete polygon drawing and save zone |
-| **`BACKSPACE`** | Undo last drawn polygon vertex |
-| **`ESC`** | Cancel polygon drawing mode |
-| **`Q`** | Gracefully quit surveillance runner |
 
 ---
 

@@ -13,7 +13,7 @@ enabled: true                           # Enable/disable restricted area analyti
 intrusion_confirmation_seconds: 0.5    # Seconds person foot point must stay inside zone before alert
 cooldown_seconds: 5.0                   # Seconds cooldown between repeat alerts for same person
 
-# Assigned Camera Feeds
+# Assigned Camera Feeds add new cameras here
 cameras:
   - camera_id: "CAM-03"
     name: "Server Room"

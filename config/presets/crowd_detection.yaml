@@ -16,7 +16,7 @@ count_drop_confirmation_seconds: 1.0    # Seconds low count must persist before 
 person_threshold: 5                     # Min people count to start crowd check
 persistence_seconds: 3.0                 # Seconds threshold must be held for crowd alert
 
-# Assigned Camera Feeds
+# Assigned Camera Feeds add new cameras here
 cameras:
   - camera_id: "CAM-01"
     name: "Canteen Quad"
