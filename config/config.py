@@ -30,6 +30,14 @@ COUNT_DROP_CONFIRMATION_SECONDS = 1.0
 PERSON_THRESHOLD = 10
 PERSISTENCE_SECONDS = 3.0
 
+# Frontend Integration Settings (Step 2 & Step 3)
+ORGANIZATION_ID = os.getenv("ML_ORGANIZATION_ID", "66d550000000000000000001")
+CAMERA_ID = os.getenv("ML_CAMERA_ID", "66d550000000000000000002")
+FRONTEND_UPDATE_INTERVAL = float(os.getenv("ML_FRONTEND_UPDATE_INTERVAL", "0.5"))
+ENABLE_FRONTEND_PUBLISH = os.getenv("ML_ENABLE_FRONTEND_PUBLISH", "true").lower() == "true"
+STREAM_FPS = int(os.getenv("ML_STREAM_FPS", "25"))
+STREAM_JPEG_QUALITY = int(os.getenv("ML_STREAM_JPEG_QUALITY", "80"))
+
 def load_preset(preset_name="crowd_detection.yaml"):
     """
     Loads configuration settings from a YAML preset file in config/presets/.

@@ -17,8 +17,12 @@ def draw_crowd_detections(frame, detections, raw_count, stable_count, crowd_info
         thickness = 2
         cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
 
-        # Label format: PERSON 92% (Track ID hidden from UI presentation)
-        label = f"PERSON {int(conf * 100)}%"
+        # Label format: PERSON #1 92% (includes Track ID when available)
+        track_id = det.get("track_id")
+        if track_id is not None:
+            label = f"PERSON #{track_id} {int(conf * 100)}%"
+        else:
+            label = f"PERSON {int(conf * 100)}%"
 
         font = cv2.FONT_HERSHEY_SIMPLEX
         font_scale = 0.5
@@ -78,3 +82,49 @@ def draw_crowd_detections(frame, detections, raw_count, stable_count, crowd_info
         )
 
     return frame
+
+
+def normalize_tracked_persons(tracked_persons, frame_width, frame_height):
+    """
+    Normalizes tracked bounding boxes to 0.0 - 1.0 coordinate space for frontend rendering.
+
+    Args:
+        tracked_persons (list): List of tracked person dicts with "box" and "track_id".
+        frame_width (int): Pixel width of the video frame.
+        frame_height (int): Pixel height of the video frame.
+
+    Returns:
+        list of dict: Normalized person tracking representations.
+    """
+    if not frame_width or not frame_height or frame_width <= 0 or frame_height <= 0:
+        return []
+
+    normalized_list = []
+    for person in (tracked_persons or []):
+        box = person.get("box", (0, 0, 0, 0))
+        x1, y1, x2, y2 = box
+
+        x1_c = max(0, min(frame_width, x1))
+        y1_c = max(0, min(frame_height, y1))
+        x2_c = max(0, min(frame_width, x2))
+        y2_c = max(0, min(frame_height, y2))
+
+        w_px = max(0, x2_c - x1_c)
+        h_px = max(0, y2_c - y1_c)
+
+        norm_x = round(x1_c / frame_width, 4)
+        norm_y = round(y1_c / frame_height, 4)
+        norm_w = round(w_px / frame_width, 4)
+        norm_h = round(h_px / frame_height, 4)
+
+        normalized_list.append({
+            "trackId": person.get("track_id"),
+            "confidence": round(float(person.get("confidence", 1.0)), 3),
+            "bbox": {
+                "x": norm_x,
+                "y": norm_y,
+                "width": norm_w,
+                "height": norm_h
+            }
+        })
+    return normalized_list

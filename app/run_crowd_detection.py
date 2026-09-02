@@ -19,6 +19,8 @@ from features.crowd_detection import (
     CrowdDetector,
     draw_crowd_detections
 )
+from backend.services.publisher import AsyncDetectionPublisher
+from backend.services.stream_manager import stream_manager
 
 def main():
     print("===========================================")
@@ -75,7 +77,16 @@ def main():
         persistence_seconds=config.PERSISTENCE_SECONDS
     )
 
+    publisher = AsyncDetectionPublisher(
+        update_interval=getattr(config, "FRONTEND_UPDATE_INTERVAL", 0.5),
+        enabled=getattr(config, "ENABLE_FRONTEND_PUBLISH", True),
+        organization_id=getattr(config, "ORGANIZATION_ID", None),
+        camera_id=getattr(config, "CAMERA_ID", None),
+    )
+
     frame_skip = getattr(config, "FRAME_SKIP", 2)
+
+    camera_id = getattr(config, "CAMERA_ID", "66d550000000000000000002")
 
     print(f"Video Source          : {video_path}")
     print(f"FPS                   : {fps:.2f}" if fps > 0 else f"FPS                   : {fps}")
@@ -86,6 +97,8 @@ def main():
     print(f"Frame Skip            : Every {frame_skip} frames (Lag Optimization Active)")
     print(f"Person Threshold      : {config.PERSON_THRESHOLD}")
     print(f"Persistence Time      : {config.PERSISTENCE_SECONDS}s")
+    print(f"Frontend Bridge       : {'Active' if publisher.enabled else 'Disabled'} (interval={publisher.update_interval}s)")
+    print(f"Live MJPEG Stream     : Active (Camera: {camera_id})")
     print("-------------------------------------------")
     print("Press 'Q' key in the video window to quit.")
 
@@ -128,10 +141,29 @@ def main():
                 # 3. Update crowd detection state
                 crowd_info = crowd_detector.update(stable_count, current_time=video_time)
 
-            # 4. Draw visualization on current frame
+                # 4. Asynchronously publish detection result to frontend bridge
+                publisher.publish_crowd_detection(
+                    raw_count=raw_count,
+                    stable_count=stable_count,
+                    crowd_info=crowd_info,
+                    tracked_persons=tracked_persons,
+                    frame_width=width,
+                    frame_height=height,
+                    camera_id=camera_id,
+                )
+
+            # 5. Draw visualization on current frame
             annotated_frame = draw_crowd_detections(frame, tracked_persons, raw_count, stable_count, crowd_info)
 
-            # 5. Display the frame
+            # 6. Update live stream buffer with the exact annotated frame (non-blocking)
+            stream_manager.update_frame(
+                camera_id=camera_id,
+                frame=annotated_frame,
+                quality=getattr(config, "STREAM_JPEG_QUALITY", 80),
+                frame_index=frame_index,
+            )
+
+            # 7. Display the frame
             cv2.imshow(window_name, annotated_frame)
 
             # Dynamic waitKey delay calculation: subtract YOLO inference duration from target frame delay
@@ -143,6 +175,7 @@ def main():
                 print("[INFO] Video playback stopped by user.")
                 break
     finally:
+        publisher.stop()
         cap.release()
         cv2.destroyAllWindows()
         print("[INFO] Resources released successfully.")

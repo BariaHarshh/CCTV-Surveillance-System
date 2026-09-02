@@ -2,7 +2,7 @@
 
 # File Paths
 model_path: "models/yolov8n.pt"                          # YOLO model weights
-video_path: "videos/stock/sample.mp4"                    # Input video source
+video_path: "videos/stock/sample8.mp4"                    # Input video source
 
 # Detection & Tracking
 confidence_threshold: 0.35              # Min detection confidence (0.0 - 1.0)
