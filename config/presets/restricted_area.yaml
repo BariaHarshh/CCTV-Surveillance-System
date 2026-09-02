@@ -1,10 +1,6 @@
 # Restricted Area Detection Preset Settings
 
-# File Paths
 model_path: "models/yolov8n.pt"                          # YOLO model weights file
-video_path: "videos/stock/sample3.mp4"                   # Input video source (Office CCTV feed)
-
-# Detection & Tracking
 confidence_threshold: 0.35              # Min detection confidence (0.0 - 1.0)
 tracker_type: "bytetrack.yaml"           # Multi-object tracker configuration
 frame_skip: 2                           # Frame skip cadence (1=every frame, 2=smooth 2x boost)
@@ -12,20 +8,24 @@ inference_size: 512                     # Inference resolution (512p for CPU smo
 
 # Core Feature Controls
 enabled: true                           # Enable/disable restricted area analytics
-camera_id: "CAM-01"                     # Surveillance camera identifier tag
-location: "Office Cubicle Zone"         # Monitored zone description
 
 # Intrusion Timing & Protection
 intrusion_confirmation_seconds: 0.5    # Seconds person foot point must stay inside zone before alert
 cooldown_seconds: 5.0                   # Seconds cooldown between repeat alerts for same person
 
-# Restricted Zones (Polygons)
-zones:
-  - name: "OFFICE CUBICLE RESTRICTED ZONE"
+# Assigned Camera Feeds add new cameras here
+cameras:
+  - camera_id: "CAM-03"
+    name: "Server Room"
+    location: "IT Block Floor 1"
+    video_path: "videos/stock/sample3.mp4"
     enabled: true
-    severity: "critical"
-    points:                             # Polygon vertices [x, y] mapped to office cubicle region
-      - [201, 271]                      # Top-Left vertex
-      - [553, 174]                      # Top-Right vertex
-      - [851, 268]                      # Right vertex
-      - [572, 531]                      # Bottom-Center vertex
+    zones:
+      - name: "SERVER ROOM RESTRICTED ZONE"
+        enabled: true
+        severity: "critical"
+        points:
+          - [201, 271]
+          - [553, 174]
+          - [851, 268]
+          - [572, 531]

@@ -147,34 +147,24 @@ Ran 76 tests in 2.973s
 OK
 ```
 
----
-
-## 💻 Keyboard Shortcuts in Surveillance Window
-
-| Key | Action |
-| :---: | :--- |
-| **`M`** | Toggle System Controls Menu (Feature switches, Add Zone, Save/Load) |
-| **`R`** | Toggle Interactive Polygon Drawing Mode |
-| **`P`** | Toggle Real-Time Performance & Latency Telemetry Card |
-| **`ENTER`** | Complete polygon drawing and save zone |
-| **`BACKSPACE`** | Undo last drawn polygon vertex |
-| **`ESC`** | Cancel polygon drawing mode |
-| **`Q`** | Gracefully quit surveillance runner |
 
 ---
 
 ## 🚀 Commands to Run
 
 ```powershell
-# 1. Balanced Mode (Recommended Daily Default)
-python app/run_risk_management.py --preset risk_management_balanced.yaml --video videos/stock/sample.mp4
+# 1. Multi-Camera 4-Feed Quad Grid Surveillance Dashboard (Recommended)
+python app/run_multi_camera.py
 
-# 2. High Performance Mode (80+ FPS)
-python app/run_risk_management.py --preset risk_management_high_performance.yaml --video videos/stock/sample.mp4
+# 2. Master Single-Stream Risk Management Dashboard
+python app/run_risk_management.py
 
-# 3. High Accuracy Mode (Full resolution analysis)
-python app/run_risk_management.py --preset risk_management_high_accuracy.yaml --video videos/stock/sample.mp4
+# 3. Individual Subsystem Runners
+python app/run_crowd_detection.py
+python app/run_behavior_detection.py
+python app/run_restricted_area.py
+python app/run_abandoned_object.py
 
-# 4. With Real-Time Console Latency Profiling
-python app/run_risk_management.py --preset risk_management_balanced.yaml --video videos/stock/sample.mp4 --profile
+# 4. Unified CLI Launcher
+python app/main.py --feature multi
 ```

@@ -1,10 +1,7 @@
-# ==============================================================================
 # AI Campus Guard - Abandoned Object Detection Configuration Preset
-# ==============================================================================
 
 # Core Paths
 model_path: "models/yolov8n.pt"
-video_path: "videos/stock/sample.mp4"
 output_path: null
 
 # Detection & Tracking Parameters
@@ -15,13 +12,19 @@ inference_size: 640
 
 # Abandoned Object Feature Parameters
 enabled: true
-camera_id: "CAM-01"
-location: "Campus Public Area"
 
 stationary_threshold_px: 14.0       # Max pixel movement displacement within window to be stationary
 stationary_window_seconds: 2.0      # Duration required to confirm stationary state
 person_proximity_threshold_px: 130.0 # Max pixel distance from object center to nearest person
 stale_track_timeout_seconds: 5.0    # Seconds before deleting a lost object track history
+
+# Assigned Camera Feeds add new cameras here 
+cameras:
+  - camera_id: "CAM-04"
+    name: "Main Lobby"
+    location: "Administration Building Entrance"
+    video_path: "videos/stock/sample.mp4"
+    enabled: true
 
 # Tier-2 Prolonged Abandonment Escalation (20 to 30 min in production, 25s in demo)
 escalation_unattended_seconds: 1200.0  # 20 minutes in seconds

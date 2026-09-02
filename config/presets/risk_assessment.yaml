@@ -1,66 +1,49 @@
-# ==============================================================================
-# AI Campus Guard - Risk Assessment Engine Configuration Preset
-# ==============================================================================
+# Risk Assessment & Master Surveillance Preset Settings
 
-# Core Paths
-model_path: "models/yolov8n.pt"
-video_path: "videos/stock/sample.mp4"
-output_path: null
+# File Paths
+model_path: "models/yolov8n.pt"                          # YOLO model weights file
+# video_path: "videos/stock/sample.mp4"                    # Optional video override (leave commented to use CLI/camera config)
 
-# Detection & Pipeline Parameters
-confidence_threshold: 0.35
-tracker_type: "bytetrack.yaml"
-frame_skip: 2
-inference_size: 640
+# Detection & Tracking
+confidence_threshold: 0.35              # Min detection confidence (0.0 - 1.0)
+tracker_type: "bytetrack.yaml"           # Multi-object tracker configuration
+frame_skip: 2                           # Frame skip cadence (1=every frame, 2=smooth 2x boost)
+inference_size: 512                     # Inference resolution (512p for CPU smooth 25 FPS)
 
-# Risk Assessment Feature Settings
-enabled: true
+# Master Surveillance Orchestrator Configuration
+risk_management:
+  enabled: true                         # Master orchestrator active flag
+  camera_id: "CAM-01"                   # Surveillance camera identifier tag
+  location: "Campus Main Quad"          # Monitored zone description
+  demo_mode: false                      # Demo mode toggle for accelerated timers
 
-# Risk Classification Boundaries
-low_max: 24
-medium_max: 49
-high_max: 74
-critical_max: 100
+  features:
+    crowd_detection: true               # Enable Crowd Density Detection
+    behavior_detection: true            # Enable Behavior Detection (Fall, Fight, Movement)
+    restricted_area: true               # Enable Restricted Area Intrusion Detection
+    abandoned_object: true              # Enable Abandoned Object Detection
 
-# Base Event Risk Weights (0 - 100)
-event_weights:
-  crowd_detected: 30
-  aggressive_movement: 55
-  fall: 65
-  potential_fall: 65
-  potential_violent_activity: 80
-  zone_breach: 60
-  restricted_area_entry: 60
-  zone_exit: 10
-  potential_abandoned_object: 60
-  prolonged_abandoned_object_escalation: 85
+  performance:
+    feature_intervals:
+      person_detection: 1               # Process person tracking every 1st frame
+      behavior_detection: 2              # Process behavior analytics every 2nd frame
+      abandoned_object: 2               # Process abandoned luggage every 2nd frame
+      restricted_area: 1                # Process polygon ROI every 1st frame
 
-# Object-Specific Risk Weights
-object_weights:
-  backpack: 70
-  handbag: 65
-  suitcase: 80
-  bottle: 20
+# Risk Engine Scoring Weights & Thresholds
+risk_weights:
+  fight: 45.0                           # Risk points added for violent altercation
+  restricted_breach: 40.0               # Risk points added for zone breach
+  fall: 35.0                            # Risk points added for fallen person
+  abandoned_object: 30.0                # Risk points added for unattended luggage
+  aggressive_movement: 20.0             # Risk points added for erratic sprinting
+  crowd_surge: 15.0                     # Risk points added for high headcount
 
-# Zone Severity Risk Weights
-zone_weights:
-  low: 40
-  medium: 60
-  high: 80
-  critical: 90
+risk_decay_rate: 5.0                    # Risk points decayed per second during idle state
+compound_threat_multiplier: 1.25        # Multiplier when 2+ threats occur simultaneously
 
-# Threat Duration Persistence Settings
-persistence_enabled: true
-persistence_rate_per_10s: 5.0
-max_persistence_bonus: 15.0
-
-# Multi-Event Escalation Settings
-escalation_enabled: true
-escalation_time_window_seconds: 15.0
-
-# Threat Inactivity Decay & Auto-Resolution
-decay_enabled: true
-decay_rate_per_second: 2.0
-inactive_timeout_seconds: 6.0
-resolution_timeout_seconds: 18.0
-max_incident_history: 10
+threat_levels:
+  low_max: 24.0                         # 0-24: Low Risk (Normal Monitoring)
+  medium_max: 49.0                      # 25-49: Medium Risk (Attention Required)
+  high_max: 74.0                        # 50-74: High Risk (Supervisor Alert)
+  critical_max: 100.0                   # 75-100: Critical Risk (Emergency Dispatch)

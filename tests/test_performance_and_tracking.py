@@ -121,12 +121,8 @@ class TestPerformanceAndTracking(unittest.TestCase):
         self.assertIn("performance_summary", out2)
 
     def test_5_performance_presets_integrity(self):
-        """Test 5: All 3 new performance preset YAMLs load and have valid configurations."""
-        presets = [
-            "risk_management_high_accuracy.yaml",
-            "risk_management_balanced.yaml",
-            "risk_management_high_performance.yaml"
-        ]
+        """Test 5: Consolidated risk_assessment.yaml preset loads and has valid configurations."""
+        presets = ["risk_assessment.yaml"]
 
         import yaml
         for p in presets:
@@ -134,8 +130,8 @@ class TestPerformanceAndTracking(unittest.TestCase):
             self.assertTrue(os.path.exists(path), f"Preset file {p} does not exist.")
             with open(path, "r", encoding="utf-8") as f:
                 data = yaml.safe_load(f)
+                self.assertIn("risk_weights", data)
                 self.assertIn("risk_management", data)
-                self.assertIn("performance", data["risk_management"])
 
 if __name__ == "__main__":
     unittest.main()
