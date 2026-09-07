@@ -5,10 +5,11 @@ Loads environment variables and server settings for FastAPI backend.
 
 import os
 from typing import List
-from dotenv import load_dotenv
-
-# Load .env file from project root if present
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 class BackendSettings:
     """Backend settings loaded from environment variables."""

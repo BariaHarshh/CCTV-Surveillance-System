@@ -5,7 +5,7 @@ confidence_threshold: 0.35              # Min detection confidence (0.0 - 1.0)
 tracker_type: "bytetrack.yaml"           # Object tracker configuration
 frame_skip: 2                           # Process every Nth frame (1=all frames, 2=smooth 2x boost)
 
-# Core Feature Controls
+video_path: "videos/stock/sample3.mp4"                   # Video source path
 enabled: true                           # Enable/disable crowd detection analytics
 
 # Count Stabilization
@@ -21,7 +21,7 @@ cameras:
   - camera_id: "CAM-01"
     name: "Canteen Quad"
     location: "Campus Central Canteen"
-    video_path: "videos/stock/sample.mp4"
+    video_path: "videos/stock/sample3.mp4"
     enabled: true
     person_threshold: 6
     persistence_seconds: 2.0

@@ -60,6 +60,9 @@ def load_preset(preset_name="crowd_detection.yaml"):
             MODEL_PATH = os.path.join(BASE_DIR, data["model_path"]) if not os.path.isabs(data["model_path"]) else data["model_path"]
         if "video_path" in data and data["video_path"]:
             VIDEO_PATH = os.path.join(BASE_DIR, data["video_path"]) if not os.path.isabs(data["video_path"]) else data["video_path"]
+        elif "cameras" in data and isinstance(data["cameras"], list) and len(data["cameras"]) > 0 and "video_path" in data["cameras"][0]:
+            cam_vpath = data["cameras"][0]["video_path"]
+            VIDEO_PATH = os.path.join(BASE_DIR, cam_vpath) if not os.path.isabs(cam_vpath) else cam_vpath
         if "output_path" in data and data["output_path"]:
             OUTPUT_PATH = os.path.join(BASE_DIR, data["output_path"]) if not os.path.isabs(data["output_path"]) else data["output_path"]
 
