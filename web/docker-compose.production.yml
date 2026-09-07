@@ -1,0 +1,16 @@
+services:
+  app:
+    build: .
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: ${MONGODB_URI}
+      SESSION_SECRET: ${SESSION_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CAMERA_ENCRYPTION_KEY: ${CAMERA_ENCRYPTION_KEY}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-CONSOLE}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-INTERNAL}
+    # Secrets must come from the host/orchestrator — never bake into the image.

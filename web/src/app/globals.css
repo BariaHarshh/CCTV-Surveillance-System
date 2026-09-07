@@ -1,0 +1,226 @@
+@import "tailwindcss";
+
+/*
+  AI Campus Guardian — premium dual theme
+  Night: ops-console graphite / sky accent
+  Day: cool paper / deep ink / refined cyan
+*/
+@theme {
+  --color-background: var(--acg-bg);
+  --color-surface: var(--acg-surface);
+  --color-surface-elevated: var(--acg-surface-elevated);
+  --color-border: var(--acg-border);
+  --color-border-strong: var(--acg-border-strong);
+  --color-muted: var(--acg-muted);
+  --color-foreground: var(--acg-fg);
+  --color-accent: var(--acg-accent);
+  --color-accent-dim: var(--acg-accent-dim);
+  --color-accent-glow: var(--acg-accent-glow);
+  --color-navy: var(--acg-navy);
+  --color-graphite: var(--acg-graphite);
+  --color-glass: var(--acg-glass);
+  --color-glass-hover: var(--acg-glass-hover);
+  --color-danger: var(--acg-danger);
+  --color-success: var(--acg-success);
+  --color-warning: var(--acg-warning);
+  --shadow-panel: var(--acg-shadow-panel);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+:root,
+html[data-theme="night"] {
+  color-scheme: dark;
+  --acg-bg: #030508;
+  --acg-surface: #0a0e14;
+  --acg-surface-elevated: #111820;
+  --acg-border: rgba(255, 255, 255, 0.08);
+  --acg-border-strong: rgba(255, 255, 255, 0.14);
+  --acg-muted: #8b95a8;
+  --acg-fg: #f4f6fa;
+  --acg-accent: #38bdf8;
+  --acg-accent-dim: #0ea5e9;
+  --acg-accent-glow: rgba(56, 189, 248, 0.35);
+  --acg-navy: #0c1524;
+  --acg-graphite: #1a2332;
+  --acg-glass: rgba(255, 255, 255, 0.03);
+  --acg-glass-hover: rgba(255, 255, 255, 0.06);
+  --acg-danger: #f87171;
+  --acg-success: #34d399;
+  --acg-warning: #fbbf24;
+  --acg-shadow-panel: 0 18px 50px rgba(0, 0, 0, 0.45);
+  --acg-gradient-text: linear-gradient(135deg, #ffffff 0%, #94a3b8 50%, #38bdf8 100%);
+  --acg-gradient-border: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.45),
+    rgba(255, 255, 255, 0.1),
+    rgba(56, 189, 248, 0.18)
+  );
+  --acg-selection: rgba(56, 189, 248, 0.28);
+  --acg-grid: rgba(56, 189, 248, 0.035);
+  --acg-noise-opacity: 0.03;
+}
+
+html[data-theme="day"] {
+  color-scheme: light;
+  --acg-bg: #eef1f6;
+  --acg-surface: #ffffff;
+  --acg-surface-elevated: #f7f8fb;
+  --acg-border: rgba(15, 23, 42, 0.09);
+  --acg-border-strong: rgba(15, 23, 42, 0.16);
+  --acg-muted: #5c667a;
+  --acg-fg: #0b1220;
+  --acg-accent: #0284c7;
+  --acg-accent-dim: #0369a1;
+  --acg-accent-glow: rgba(2, 132, 199, 0.22);
+  --acg-navy: #0f1b2d;
+  --acg-graphite: #e2e8f0;
+  --acg-glass: rgba(15, 23, 42, 0.035);
+  --acg-glass-hover: rgba(15, 23, 42, 0.07);
+  --acg-danger: #dc2626;
+  --acg-success: #059669;
+  --acg-warning: #d97706;
+  --acg-shadow-panel: 0 16px 40px rgba(15, 23, 42, 0.08);
+  --acg-gradient-text: linear-gradient(135deg, #0b1220 0%, #334155 45%, #0284c7 100%);
+  --acg-gradient-border: linear-gradient(
+    135deg,
+    rgba(2, 132, 199, 0.45),
+    rgba(15, 23, 42, 0.08),
+    rgba(2, 132, 199, 0.2)
+  );
+  --acg-selection: rgba(2, 132, 199, 0.22);
+  --acg-grid: rgba(2, 132, 199, 0.05);
+  --acg-noise-opacity: 0.02;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.35s ease, color 0.35s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  body,
+  .theme-transition {
+    transition: none !important;
+  }
+  .animate-pulse-glow {
+    animation: none !important;
+  }
+}
+
+::selection {
+  background: var(--acg-selection);
+  color: var(--color-foreground);
+}
+
+.gradient-text {
+  background: var(--acg-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--acg-gradient-border);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.glow-accent {
+  box-shadow: 0 0 60px var(--color-accent-glow), 0 0 120px color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.grid-pattern {
+  background-image:
+    linear-gradient(var(--acg-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--acg-grid) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.noise-overlay {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: calc(0.5 + var(--acg-noise-opacity) * 10);
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+/* Premium UI primitives — theme-aware */
+.ui-panel {
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(12px);
+}
+
+.ui-chrome {
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-background) 82%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+.ui-input {
+  border: 1px solid var(--color-border);
+  background: var(--color-glass);
+  color: var(--color-foreground);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.ui-input:focus {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.ui-button-ghost {
+  color: var(--color-muted);
+  border-radius: 0.75rem;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.ui-button-ghost:hover {
+  background: var(--color-glass-hover);
+  color: var(--color-foreground);
+}
+
+html[data-theme="day"] .glow-accent {
+  box-shadow: 0 12px 40px rgba(2, 132, 199, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
+}
