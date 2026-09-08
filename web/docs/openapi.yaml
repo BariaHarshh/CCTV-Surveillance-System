@@ -1,0 +1,39 @@
+openapi: 3.0.3
+info:
+  title: AI Campus Guardian API
+  version: 0.11.0
+  description: Production SaaS API surface (authenticated). Secrets never documented here.
+servers:
+  - url: /api
+paths:
+  /health/live:
+    get:
+      summary: Liveness
+      responses:
+        "200":
+          description: LIVE
+  /health/ready:
+    get:
+      summary: Readiness
+      responses:
+        "200":
+          description: READY
+        "503":
+          description: UNAVAILABLE
+  /billing/overview:
+    get:
+      summary: Organization billing overview
+      responses:
+        "200":
+          description: Aggregated subscription, usage, invoices
+  /settings/organization:
+    get:
+      summary: Organization settings
+      responses:
+        "200":
+          description: Profile + branding
+    patch:
+      summary: Update organization settings
+      responses:
+        "200":
+          description: Updated

@@ -17,6 +17,13 @@ ENV/
 .env
 .env.local
 
+# Web Portal Node.js & Next.js
+web/node_modules/
+web/.next/
+web/.env.local
+web/out/
+web/build/
+
 # Logs & Temporary Data
 *.log
 scratch/
