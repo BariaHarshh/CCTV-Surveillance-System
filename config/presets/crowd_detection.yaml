@@ -21,7 +21,7 @@ cameras:
   - camera_id: "CAM-01"
     name: "Canteen Quad"
     location: "Campus Central Canteen"
-    video_path: "videos/stock/sample.mp4"
+    video_path: "videos/stock/sample8.mp4"
     enabled: true
     person_threshold: 6
     persistence_seconds: 2.0
