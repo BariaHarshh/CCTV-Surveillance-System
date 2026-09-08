@@ -32,6 +32,26 @@ app.include_router(detection_router)
 app.include_router(stream_router)
 
 
+import asyncio
+import sys
+
+# Suppress Windows Proactor asyncio socket reset warning logs
+if sys.platform == "win32":
+    def _silence_connection_reset(loop, context):
+        exception = context.get("exception")
+        if isinstance(exception, ConnectionResetError):
+            return
+        loop.default_exception_handler(context)
+
+    @app.on_event("startup")
+    async def _set_asyncio_exception_handler():
+        try:
+            loop = asyncio.get_running_loop()
+            loop.set_exception_handler(_silence_connection_reset)
+        except Exception:
+            pass
+
+
 if __name__ == "__main__":
     uvicorn.run(
         "backend.main:app",

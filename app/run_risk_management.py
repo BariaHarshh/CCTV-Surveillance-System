@@ -128,6 +128,10 @@ def main():
                     if k in (ord('q'), ord('Q')):
                         print("[INFO] Multi-Camera playback stopped by user.")
                         break
+                else:
+                    proc_ms = (time.time() - t0) * 1000.0
+                    w_ms = max(1, int(40.0 - proc_ms))
+                    time.sleep(w_ms / 1000.0)
 
                 if args.max_frames and frame_idx >= args.max_frames:
                     print(f"[INFO] Multi-Cam mode reached max requested frames ({args.max_frames}). Stopping.")

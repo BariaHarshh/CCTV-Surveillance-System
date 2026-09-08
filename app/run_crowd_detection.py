@@ -88,6 +88,8 @@ def main():
 
     camera_id = getattr(config, "CAMERA_ID", "66d550000000000000000002")
 
+    headless = os.getenv("HEADLESS", "false").lower() in ("true", "1", "yes") or "--headless" in sys.argv
+
     print(f"Video Source          : {video_path}")
     print(f"FPS                   : {fps:.2f}" if fps > 0 else f"FPS                   : {fps}")
     print(f"Resolution            : {width} x {height} px")
@@ -99,8 +101,12 @@ def main():
     print(f"Persistence Time      : {config.PERSISTENCE_SECONDS}s")
     print(f"Frontend Bridge       : {'Active' if publisher.enabled else 'Disabled'} (interval={publisher.update_interval}s)")
     print(f"Live MJPEG Stream     : Active (Camera: {camera_id})")
+    print(f"Display Mode          : {'Headless (Web Stream Only)' if headless else 'OpenCV Desktop Window'}")
     print("-------------------------------------------")
-    print("Press 'Q' key in the video window to quit.")
+    if not headless:
+        print("Press 'Q' key in the video window to quit.")
+    else:
+        print("Surveillance running in background. Stream viewable in web portal.")
 
     target_delay_ms = 1000.0 / fps if (fps and fps > 0) else 33.0
     window_name = "AI Campus Guard - Crowd Detection"
@@ -124,8 +130,12 @@ def main():
             start_time_frame = time.time()
             ret, frame = cap.read()
             if not ret:
-                print("[INFO] End of video stream reached.")
-                break
+                # Continuously loop video source for live camera feed simulation
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                ret, frame = cap.read()
+                if not ret:
+                    print("[INFO] End of video stream reached.")
+                    break
 
             frame_index += 1
             video_time = (frame_index / fps) if (fps and fps > 0) else None
@@ -163,21 +173,23 @@ def main():
                 frame_index=frame_index,
             )
 
-            # 7. Display the frame
-            cv2.imshow(window_name, annotated_frame)
-
-            # Dynamic waitKey delay calculation: subtract YOLO inference duration from target frame delay
+            # 7. Display the frame or sleep frame cadence if headless
             elapsed_proc_ms = (time.time() - start_time_frame) * 1000.0
             wait_delay_ms = max(1, int(target_delay_ms - elapsed_proc_ms))
 
-            key = cv2.waitKey(wait_delay_ms) & 0xFF
-            if key == ord('q') or key == ord('Q'):
-                print("[INFO] Video playback stopped by user.")
-                break
+            if not headless:
+                cv2.imshow(window_name, annotated_frame)
+                key = cv2.waitKey(wait_delay_ms) & 0xFF
+                if key == ord('q') or key == ord('Q'):
+                    print("[INFO] Video playback stopped by user.")
+                    break
+            else:
+                time.sleep(wait_delay_ms / 1000.0)
     finally:
         publisher.stop()
         cap.release()
-        cv2.destroyAllWindows()
+        if not headless:
+            cv2.destroyAllWindows()
         print("[INFO] Resources released successfully.")
 
 if __name__ == "__main__":

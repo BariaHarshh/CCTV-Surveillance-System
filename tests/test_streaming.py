@@ -122,7 +122,59 @@ class TestStreaming(unittest.TestCase):
             self.assertIn(b"--frame\r\n", chunk)
             self.assertIn(b"Content-Type: image/jpeg\r\n", chunk)
 
+    def test_camera_id_mapping_resolution(self):
+        """Verify CAM-000001 resolves to ML stream 66d550000000000000000002."""
+        ml_id = "66d550000000000000000002"
+        app_id = "CAM-000001"
+        dummy_frame = np.zeros((100, 100, 3), dtype=np.uint8)
+        stream_manager.update_frame(ml_id, dummy_frame)
+
+        # Query status via frontend camera ID
+        status_res = client.get(f"/api/cameras/{app_id}/stream/status")
+        self.assertEqual(status_res.status_code, 200)
+        data = status_res.json()
+        self.assertEqual(data["cameraId"], app_id)
+        self.assertTrue(data["active"])
+        self.assertEqual(data["resolution"], "100x100")
+
+        # Verify stream generator resolves to ML stream frames
+        async def _test():
+            gen = stream_manager.generate_mjpeg_stream(app_id)
+            chunk = await gen.__anext__()
+            self.assertIn(b"--frame\r\n", chunk)
+            self.assertIn(b"Content-Type: image/jpeg\r\n", chunk)
         asyncio.run(_test())
+
+    def test_four_camera_concurrent_streams(self):
+        """Verify 4 simultaneous camera streams can update and stream independently."""
+        cams = [
+            ("CAM-000001", "66d550000000000000000002", (640, 480)),
+            ("CAM-000002", "66d550000000000000000003", (640, 480)),
+            ("CAM-000003", "66d550000000000000000004", (640, 480)),
+            ("CAM-000004", "66d550000000000000000005", (640, 480)),
+        ]
+
+        # 1. Update all 4 camera buffers
+        for app_id, ml_id, (w, h) in cams:
+            frame = np.zeros((h, w, 3), dtype=np.uint8)
+            stream_manager.update_frame(ml_id, frame)
+
+        # 2. Verify all 4 streams active via both app ID and ML ID
+        for app_id, ml_id, _ in cams:
+            st1 = stream_manager.get_stream_status(app_id)
+            st2 = stream_manager.get_stream_status(ml_id)
+            self.assertTrue(st1["active"])
+            self.assertTrue(st2["active"])
+
+        # 3. Verify each stream yields independent valid JPEG chunks
+        async def _test_all():
+            for app_id, _, _ in cams:
+                gen = stream_manager.generate_mjpeg_stream(app_id)
+                chunk = await gen.__anext__()
+                self.assertIn(b"--frame\r\n", chunk)
+                self.assertIn(b"Content-Type: image/jpeg\r\n", chunk)
+        asyncio.run(_test_all())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,7 +16,7 @@ cameras:
   - camera_id: "CAM-02"
     name: "Hostel Corridor"
     location: "Corridor Wing B"
-    video_path: "videos/stock/sample2.mp4"
+    video_path: "videos/stock/sample5.mp4"
     enabled: true
 
 # Fall Detection Settings (Calibrated for High Recall on Fallen Postures)

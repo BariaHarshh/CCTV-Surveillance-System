@@ -86,14 +86,20 @@ async def update_camera_frame(camera_id: str, request: Request):
     if not jpeg_bytes:
         raise HTTPException(status_code=400, detail="Empty frame body")
 
+    resolved_id = stream_manager.resolve_camera_id(camera_id)
+    now = time.time()
+    frame_data = {
+        "jpeg_bytes": jpeg_bytes,
+        "timestamp": now,
+        "frame_index": 0,
+        "width": 640,
+        "height": 480,
+    }
+
     with stream_manager._condition:
-        stream_manager._frames[camera_id] = {
-            "jpeg_bytes": jpeg_bytes,
-            "timestamp": time.time(),
-            "frame_index": 0,
-            "width": 640,
-            "height": 480,
-        }
+        stream_manager._frames[resolved_id] = frame_data
+        if camera_id != resolved_id:
+            stream_manager._frames[camera_id] = frame_data
         stream_manager._condition.notify_all()
 
-    return {"status": "ok", "cameraId": camera_id}
+    return {"status": "ok", "cameraId": camera_id, "resolvedId": resolved_id}

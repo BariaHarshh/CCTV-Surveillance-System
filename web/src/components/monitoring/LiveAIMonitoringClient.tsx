@@ -84,10 +84,11 @@ export function LiveAIMonitoringClient({
       const res = await fetch("/api/monitoring/cameras", { credentials: "include" });
       const data = await res.json();
       if (res.ok && Array.isArray(data.cameras)) {
-        setCameras(data.cameras);
-        if (data.cameras.length > 0) {
+        const sorted = [...data.cameras].sort((a, b) => (a.cameraId || "").localeCompare(b.cameraId || ""));
+        setCameras(sorted);
+        if (sorted.length > 0) {
           if (!selectedCameraId) {
-            setSelectedCameraId(data.cameras[0].id);
+            setSelectedCameraId(sorted[0].id);
           }
         } else {
           setLoading(false);
@@ -275,36 +276,57 @@ export function LiveAIMonitoringClient({
         </div>
       ) : (
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
-          {/* Main Column: Live Video Stream Panel */}
+          {/* Main Column: 4-Camera Live Video Stream Grid */}
           <div className="space-y-6 lg:col-span-2">
-            <div className="overflow-hidden rounded-2xl border border-border bg-surface/50 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                  </span>
-                  <span className="text-xs font-semibold tracking-wider text-emerald-400">LIVE ML STREAM</span>
-                  <span className="rounded-full bg-glass px-2 py-0.5 font-mono text-[10px] text-muted">MJPEG PROXY</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CameraStatusDot status={camera.status} />
-                  <span className="font-mono text-xs text-muted">{camera.cameraId}</span>
-                </div>
-              </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {cameras.map((cam) => {
+                const isSelected = selectedCameraId === cam.id;
+                return (
+                  <div
+                    key={cam.id}
+                    onClick={() => setSelectedCameraId(cam.id)}
+                    className={cn(
+                      "cursor-pointer overflow-hidden rounded-2xl border bg-surface/50 p-3.5 transition-all",
+                      isSelected
+                        ? "border-accent/80 shadow-lg shadow-accent/10 ring-1 ring-accent/50"
+                        : "border-border hover:border-accent/40"
+                    )}
+                  >
+                    <div className="mb-2.5 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                        </span>
+                        <span className="font-mono text-xs font-semibold text-foreground">{cam.cameraId}</span>
+                        <span className="text-[11px] font-medium text-muted truncate max-w-[130px]">{cam.name}</span>
+                      </div>
+                      <CameraStatusDot status={cam.status} />
+                    </div>
 
-              {/* Camera Video Feed */}
-              <CameraStreamView
-                cameraDbId={camera.id}
-                status={camera.status}
-                className="w-full"
-                detections={crowdData.detections}
-              />
+                    {/* Camera Video Feed - Autoplays on mount */}
+                    <CameraStreamView
+                      cameraDbId={cam.id}
+                      status={cam.status}
+                      className="w-full aspect-video"
+                      detections={isSelected ? crowdData.detections : []}
+                    />
 
-              <div className="mt-3 flex items-center justify-between text-[11px] text-muted">
-                <span>Location: {[camera.location.building, camera.location.room, camera.location.areaLabel].filter(Boolean).join(" · ") || "Main Campus Area"}</span>
-                <span>Last ML Frame: {crowdData.lastUpdate ? formatTime(crowdData.lastUpdate) : "Streaming live"}</span>
-              </div>
+                    <div className="mt-2.5 flex items-center justify-between text-[11px] text-muted">
+                      <span className="truncate max-w-[170px]">
+                        {[cam.location.building, cam.location.room, cam.location.areaLabel].filter(Boolean).join(" · ") || "Campus Area"}
+                      </span>
+                      {isSelected ? (
+                        <span className="font-semibold text-accent flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" /> Focused
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-muted">Click to Focus</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Bottom Panel: Recent AI Events Timeline */}

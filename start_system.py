@@ -79,10 +79,10 @@ def start_fastapi_backend():
     processes.append(("FastAPI Backend", p))
 
 def start_ai_surveillance():
-    """Starts AI Crowd Detection Pipeline (updates stream & sends detections to frontend)."""
+    """Starts 4-Camera AI Surveillance Pipeline (updates streams & sends detections to frontend)."""
     time.sleep(2)  # Short pause to let backend servers bind ports
-    print("[INFO] Starting AI Crowd Detection Pipeline...")
-    cmd = [PYTHON_EXEC, "app/run_crowd_detection.py"]
+    print("[INFO] Starting 4-Camera AI Surveillance Pipeline (Headless Web Streaming Mode)...")
+    cmd = [PYTHON_EXEC, "app/run_multi_camera.py", "--headless"]
     p = subprocess.Popen(cmd, cwd=BASE_DIR)
     processes.append(("AI Surveillance", p))
 

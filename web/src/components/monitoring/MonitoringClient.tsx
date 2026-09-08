@@ -58,7 +58,10 @@ export function MonitoringClient({ user, portal }: { user: SafeUser; portal: "ad
           alerts: o.alerts,
         });
       }
-      if (camRes.ok) setCameras(cam.cameras ?? []);
+      if (camRes.ok) {
+        const sorted = [...(cam.cameras ?? [])].sort((a, b) => (a.cameraId || "").localeCompare(b.cameraId || ""));
+        setCameras(sorted);
+      }
     } finally {
       setLoading(false);
     }
@@ -202,20 +205,7 @@ export function MonitoringClient({ user, portal }: { user: SafeUser; portal: "ad
                   {cam.lastSeen && <p className="mt-1 text-[10px] text-muted">Last seen: {formatTime(cam.lastSeen)}</p>}
                 </div>
                 <div className="p-3">
-                  {expandedId === cam.id ? (
-                    <CameraStreamView cameraDbId={cam.id} status={cam.status} />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setExpandedId(cam.id)}
-                      className={cn(
-                        "flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-border py-8 text-xs font-semibold tracking-wider text-accent hover:bg-accent/5",
-                        cam.status !== "ONLINE" && "text-muted"
-                      )}
-                    >
-                      {cam.status === "ONLINE" ? "LIVE VIEW" : "CAMERA OFFLINE"}
-                    </button>
-                  )}
+                  <CameraStreamView cameraDbId={cam.id} status={cam.status} />
                 </div>
                 <div className="flex border-t border-border">
                   <Link href={`${base}/monitoring/cameras/${cam.id}`} className="flex flex-1 items-center justify-center gap-1 py-3 text-xs text-muted hover:text-accent">

@@ -4,7 +4,7 @@
 ![Next.js 15](https://img.shields.io/badge/Next.js-15%20(React%2019)-black.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100%2B-009688.svg)
 ![YOLOv8](https://img.shields.io/badge/YOLOv8-Ultralytics-green.svg)
-![Build Status](https://img.shields.io/badge/tests-99%2F99%20passed-brightgreen.svg)
+![Build Status](https://img.shields.io/badge/tests-101%2F101%20passed-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey.svg)
 
 **AI Campus Guard** is an enterprise-grade real-time computer vision threat intelligence platform and web management portal designed for automated CCTV surveillance across campus environments. It integrates multi-stream object tracking, human behavioral analytics, polygon restricted area intrusion detection, and unattended item monitoring with a **FastAPI ML Integration Layer** and a **Next.js Web Portal**.
@@ -14,23 +14,34 @@
 ## 📸 Core Capabilities
 
 * **⚡ One-Click System Launcher (`start_system.py`)**  
-  Concurrently runs the **Next.js Enterprise Web Portal** (`http://localhost:3000`), **FastAPI ML Backend** (`http://localhost:8000`), and **AI Surveillance Engine** in a single terminal command.
+  Concurrently runs the **Next.js Enterprise Web Portal** (`http://localhost:3000`), **FastAPI ML Backend** (`http://localhost:8000`), and **4-Camera AI Surveillance Engine** (`app/run_multi_camera.py --headless`) in a single terminal command.
 * **🌐 Next.js 15 Enterprise Web Portal (`web/`)**  
-  Real-time security monitoring dashboard, Socket.IO live alerts, MongoDB Atlas cloud storage, guard incident dispatching, and audit logging.
+  Real-time 2x2 multi-camera live video monitoring grid, Socket.IO live alerts, MongoDB Atlas cloud storage, guard incident dispatching, and audit logging.
 * **⚡ FastAPI Integration Layer (`backend/`)**  
-  Bridge server delivering live MJPEG video streams (`/api/cameras/{id}/stream`) and pushing structured detection payloads (`/api/internal/detection`) to the Web Portal.
-* **🎥 Multi-Camera 2x2 Quad Grid (`app/run_multi_camera.py`)**  
-  Stitches live CCTV camera feeds into a unified surveillance grid with per-camera status cards and risk telemetry HUDs.
+  Bridge server delivering live MJPEG video streams (`/api/cameras/{id}/stream`) via dedicated async queue worker and pushing structured detection payloads (`/api/internal/detection`) to the Web Portal.
+* **🎥 Multi-Camera 4-Feed Video Pipeline (`app/run_multi_camera.py`)**  
+  Stitches 4 independent CCTV camera feeds (`sample4.mp4`, `sample5.mp4`, `sample6.mp4`, `sample7.mp4`) into a synchronized surveillance pipeline with per-camera status cards and risk telemetry HUDs.
 * **🧠 Centralized Risk Engine (`app/run_risk_management.py`)**  
   Aggregates multi-source detections into a normalized risk score (0–100) using exponential decay, cooldown deduplication, and compound threat multipliers.
 * **👥 Crowd Density & Headcount Monitoring (`app/run_crowd_detection.py`)**  
-  Real-time person tracking via ByteTrack with median filter headcount stabilization and sustained density alert persistence checks.
+  Real-time person tracking via ByteTrack with median filter headcount stabilization and sustained density alert persistence checks (`CAM-01`).
 * **💥 Human Behavior Analytics (`app/run_behavior_detection.py`)**  
-  Detects sudden falls, physical altercations/struggles, and erratic sprinting using bounding-box trajectory kinematics.
+  Detects sudden falls, physical altercations/struggles, and erratic sprinting using bounding-box trajectory kinematics (`CAM-02`).
 * **🚨 Restricted Area Intrusion (`app/run_restricted_area.py`)**  
-  Polygon ROI intrusion detection using multi-anchor foot-point geometry tests (`cv2.pointPolygonTest`).
+  Polygon ROI intrusion detection using multi-anchor foot-point geometry tests (`cv2.pointPolygonTest`) (`CAM-03`).
 * **🧳 Abandoned Object Detection (`app/run_abandoned_object.py`)**  
-  Monitors unattended luggage and personal items, tracking owner proximity and trigger duration timers.
+  Monitors unattended luggage and personal items, tracking owner proximity, stationary displacement, and duration escalation (`CAM-04`).
+
+---
+
+## 🎥 4-Camera Surveillance Matrix
+
+| Camera ID | App Name | AI Feature Module | Video Source | ML Stream ID | FastAPI Route |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `CAM-000001` | Canteen Quad (`CAM-01`) | **Crowd Detection** | `videos/stock/sample4.mp4` | `66d550000000000000000002` | `/api/cameras/66d550000000000000000002/stream` |
+| `CAM-000002` | Hostel Corridor (`CAM-02`) | **Behavior Analytics** | `videos/stock/sample5.mp4` | `66d550000000000000000003` | `/api/cameras/66d550000000000000000003/stream` |
+| `CAM-000003` | Server Room (`CAM-03`) | **Restricted Polygon ROI** | `videos/stock/sample6.mp4` | `66d550000000000000000004` | `/api/cameras/66d550000000000000000004/stream` |
+| `CAM-000004` | Main Lobby (`CAM-04`) | **Abandoned Luggage** | `videos/stock/sample7.mp4` | `66d550000000000000000005` | `/api/cameras/66d550000000000000000005/stream` |
 
 ---
 
@@ -41,17 +52,17 @@
  │                      AI CAMPUS GUARD ARCHITECTURE                           │
  └─────────────────────────────────────────────────────────────────────────────┘
 
-    1. AI ML MODELS & CAMERA PIPELINE (Python)
+    1. AI ML MODELS & MULTI-CAMERA PIPELINE (Python)
        • Engine: YOLOv8 Nano + ByteTrack Multi-Object Tracking
-       • Features: Crowd Density, Behavior, Restricted Zones, Abandoned Items
-       • Sends live REST HTTP detections -> http://localhost:8000/api/detection/crowd
+       • 4 Live Streams: Crowd Density, Behavior, Restricted Zones, Luggage
+       • Frame Dispatcher Queue -> http://localhost:8000/api/cameras/{id}/frame
                                                  
                                      │
                                      ▼
                                      
     2. FASTAPI INTEGRATION BACKEND (Python)
        • File: backend/main.py (Port 8000)
-       • Exposes MJPEG Stream: http://localhost:8000/api/cameras/{id}/stream
+       • Exposes Isolated MJPEG Streams: http://localhost:8000/api/cameras/{id}/stream
        • Forwards AI detection payloads to Next.js API endpoints.
 
                                      │
@@ -59,7 +70,7 @@
 
     3. NEXT.JS ENTERPRISE WEB PORTAL (TypeScript / React 19)
        • Directory: web/ (Port 3000)
-       • Live Monitoring Page: http://localhost:3000/admin/monitoring/live
+       • Live Monitoring 2x2 Grid: http://localhost:3000/admin/monitoring/live
        • Real-time Socket.IO alerts, headcount progress bars, threat level badges.
        • MongoDB Atlas Cloud Storage.
 ```
@@ -84,26 +95,26 @@ AI-Campus-Guard/
 │   ├── main.py                       # FastAPI Application Entrypoint
 │   ├── routes/                       # Stream & Detection API Routes
 │   ├── schemas/                      # Pydantic Payload Schemas
-│   └── services/                     # MJPEG Stream Manager & Frontend Bridge Service
+│   └── services/                     # MJPEG Stream Manager & Async FrameDispatcher
 │
 ├── web/                              # Next.js 15 Enterprise Web Portal (Port 3000)
 │   ├── src/app/                      # Next.js App Router (Pages & API Routes)
-│   ├── src/components/               # UI Components & Monitoring Widgets
+│   ├── src/components/               # UI Components, Monitoring Cards & 2x2 Grid
 │   ├── src/models/                   # MongoDB Mongoose Schemas (User, Camera, Event)
 │   └── server.ts                     # Custom Node.js HTTP + Socket.IO Server
 │
 ├── config/                           # Modular Configuration System
 │   ├── config.py                     # Global Constants & Base Paths
 │   └── presets/                      # Feature Configuration YAML Presets
-│       ├── crowd_detection.yaml      # Crowd Thresholds & Camera Assignments
-│       ├── behavior_detection.yaml   # Kinematics & Fight/Fall Detection Thresholds
-│       ├── restricted_area.yaml      # Polygon ROI Zones & Camera Assignments
-│       └── abandoned_object.yaml     # Luggage Rules & Duty Staff Directory
+│       ├── crowd_detection.yaml      # Crowd Thresholds & Camera Assignments (sample4.mp4)
+│       ├── behavior_detection.yaml   # Kinematics & Fight/Fall Detection (sample5.mp4)
+│       ├── restricted_area.yaml      # Polygon ROI Zones & Camera Assignments (sample6.mp4)
+│       └── abandoned_object.yaml     # Luggage Rules & Duty Staff Directory (sample7.mp4)
 │
 ├── features/                         # Core Machine Learning Feature Packages
 ├── models/                           # Model Weights (yolov8n.pt)
-├── videos/                           # Input & Stock CCTV Videos
-├── tests/                            # 99 Automated Unit & Integration Tests
+├── videos/                           # Input & Stock CCTV Videos (sample4-7.mp4)
+├── tests/                            # 101 Automated Unit & Integration Tests
 ├── HOW_TO_RUN.md                     # Step-by-Step Running Guide
 └── project.md                        # Technical Specifications & Log
 ```
@@ -125,9 +136,6 @@ python -m venv .venv
 
 # Install Python dependencies
 pip install -r requirements.txt
-
-# Download model weights
-python scripts/download_models.py
 ```
 
 ### 2. Launch Entire System (1 Command)
@@ -141,7 +149,7 @@ This master command automatically:
 2. Installs `web` Node dependencies (`npm install`).
 3. Launches **Next.js Web Portal** (`http://localhost:3000`).
 4. Launches **FastAPI ML Backend** (`http://localhost:8000`).
-5. Launches **AI Surveillance Engine** & opens `http://localhost:3000/login` in your default browser.
+5. Launches **4-Camera AI Surveillance Engine** & opens `http://localhost:3000` in your default browser.
 
 #### Login Credentials:
 - **URL**: `http://localhost:3000/login`
@@ -152,38 +160,49 @@ This master command automatically:
 
 ## ⚙️ Configuration & Preset System
 
-Feature settings are managed in [`config/presets/`](file:///D:/My%20Github%20Projects/AI%20Campus%20Guard/config/presets/):
+Feature settings are managed in [`config/presets/`](file:///c:/Workshop/AI-Campus-Guard/config/presets/):
 
 ```yaml
 # config/presets/crowd_detection.yaml
-video_path: "videos/stock/sample3.mp4"
+video_path: "videos/stock/sample4.mp4"
 enabled: true
-person_threshold: 5
-persistence_seconds: 3.0
+person_threshold: 6
+persistence_seconds: 2.0
 cameras:
   - camera_id: "CAM-01"
     name: "Canteen Quad"
     location: "Campus Central Canteen"
-    video_path: "videos/stock/sample3.mp4"
+    video_path: "videos/stock/sample4.mp4"
     enabled: true
-    person_threshold: 5
-    persistence_seconds: 3.0
+    person_threshold: 6
+    persistence_seconds: 2.0
 ```
 
 ---
 
 ## 🧪 Test Suite Verification
 
-Run the complete automated test suite (**99 unit and integration test cases**):
+Run the complete automated test suite (**101 Python tests + 59 Web tests**):
 
 ```powershell
-python -m unittest discover tests
+# Python Backend & ML Tests
+pytest -v
+
+# Frontend Typecheck & Vitest
+cd web
+npm run typecheck
+npx vitest run
 ```
 
-**Expected Output**:
+**Python Test Output**:
 ```text
-Ran 99 tests in 8.687s
-OK
+======================= 101 passed in 6.84s =======================
+```
+
+**Frontend Test Output**:
+```text
+Test Files  8 passed (8)
+     Tests  59 passed (59)
 ```
 
 ---
@@ -200,3 +219,4 @@ OK
 ## 📄 License
 
 This project is licensed under the MIT License.
+

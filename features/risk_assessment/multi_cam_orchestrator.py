@@ -23,6 +23,7 @@ from .event_adapter import EventNormalizer
 from .event_model import RiskEvent
 from .profiler import PerformanceProfiler
 from .utils import draw_risk_assessment_overlay, UILayoutManager
+from backend.services.stream_manager import stream_manager
 
 class MultiCameraOrchestrator:
     """
@@ -107,10 +108,10 @@ class MultiCameraOrchestrator:
 
         # 2. Fallbacks for standard 4 camera matrix if any camera is missing
         default_matrix = [
-            ("CAM-01", "Canteen Quad", os.path.join(base_stock, "stock", "sample.mp4"), {"crowd_detection": True, "behavior_detection": False, "restricted_area": False, "abandoned_object": False}),
-            ("CAM-02", "Hostel Corridor", os.path.join(base_stock, "stock", "sample2.mp4"), {"crowd_detection": False, "behavior_detection": True, "restricted_area": False, "abandoned_object": False}),
-            ("CAM-03", "Server Room", os.path.join(base_stock, "stock", "sample3.mp4"), {"crowd_detection": False, "behavior_detection": False, "restricted_area": True, "abandoned_object": False}),
-            ("CAM-04", "Main Lobby", os.path.join(base_stock, "stock", "sample.mp4"), {"crowd_detection": False, "behavior_detection": False, "restricted_area": False, "abandoned_object": True}),
+            ("CAM-01", "Canteen Quad", os.path.join(base_stock, "stock", "sample4.mp4"), {"crowd_detection": True, "behavior_detection": False, "restricted_area": False, "abandoned_object": False}),
+            ("CAM-02", "Hostel Corridor", os.path.join(base_stock, "stock", "sample5.mp4"), {"crowd_detection": False, "behavior_detection": True, "restricted_area": False, "abandoned_object": False}),
+            ("CAM-03", "Server Room", os.path.join(base_stock, "stock", "sample6.mp4"), {"crowd_detection": False, "behavior_detection": False, "restricted_area": True, "abandoned_object": False}),
+            ("CAM-04", "Main Lobby", os.path.join(base_stock, "stock", "sample7.mp4"), {"crowd_detection": False, "behavior_detection": False, "restricted_area": False, "abandoned_object": True}),
         ]
 
         for cid, cname, default_vpath, default_flags in default_matrix:
@@ -319,6 +320,16 @@ class MultiCameraOrchestrator:
             cam_risk_scores[cam_id] = cam_score
             annotated_frames[cam_id] = annotated
 
+            # 6. Update individual camera live stream buffer (non-blocking)
+            try:
+                stream_manager.update_frame(
+                    camera_id=cam_id,
+                    frame=annotated,
+                    frame_index=frame_index,
+                )
+            except Exception:
+                pass
+
         # -------------------------------------------------------------
         # Central Risk Assessment Aggregation
         # -------------------------------------------------------------
@@ -331,6 +342,16 @@ class MultiCameraOrchestrator:
         # Render 2x2 Quad Grid Dashboard
         quad_grid = self.render_quad_grid(annotated_frames, risk_output, cam_risk_scores, perf_summary)
         self.profiler.mark_stage("ui_render")
+
+        # Update composite quad grid stream buffer
+        try:
+            stream_manager.update_frame(
+                camera_id="CAM-QUAD-GRID",
+                frame=quad_grid,
+                frame_index=frame_index,
+            )
+        except Exception:
+            pass
 
         return {
             "quad_grid": quad_grid,

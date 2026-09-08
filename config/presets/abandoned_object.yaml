@@ -23,7 +23,7 @@ cameras:
   - camera_id: "CAM-04"
     name: "Main Lobby"
     location: "Administration Building Entrance"
-    video_path: "videos/stock/sample.mp4"
+    video_path: "videos/stock/sample7.mp4"
     enabled: true
 
 # Tier-2 Prolonged Abandonment Escalation (20 to 30 min in production, 25s in demo)

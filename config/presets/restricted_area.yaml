@@ -18,7 +18,7 @@ cameras:
   - camera_id: "CAM-03"
     name: "Server Room"
     location: "IT Block Floor 1"
-    video_path: "videos/stock/sample3.mp4"
+    video_path: "videos/stock/sample6.mp4"
     enabled: true
     zones:
       - name: "SERVER ROOM RESTRICTED ZONE"
