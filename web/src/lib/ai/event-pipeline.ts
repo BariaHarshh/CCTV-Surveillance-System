@@ -49,8 +49,10 @@ function toEventPublic(e: IEvent, extra?: { cameraName?: string }) {
 }
 
 async function resolveLocation(cameraId: string, organizationId: string) {
-  const camera = await Camera.findOne(orgFilter(organizationId, { _id: cameraId }));
-  if (!camera) return { campusId: null, buildingId: null, roomId: null, label: "", cameraName: "", cameraPublicId: "" };
+  const isMongoId = mongoose.Types.ObjectId.isValid(cameraId);
+  const query = isMongoId ? { $or: [{ _id: cameraId }, { cameraId }] } : { cameraId };
+  const camera = await Camera.findOne(orgFilter(organizationId, query));
+  if (!camera) return { cameraDoc: null, campusId: null, buildingId: null, roomId: null, label: "", cameraName: "", cameraPublicId: "" };
 
   const [building, room] = await Promise.all([
     camera.buildingId ? Building.findById(camera.buildingId).select("name") : null,
@@ -59,6 +61,7 @@ async function resolveLocation(cameraId: string, organizationId: string) {
 
   const parts = [building?.name, room ? `${room.roomNumber} — ${room.name}` : camera.areaLabel].filter(Boolean);
   return {
+    cameraDoc: camera,
     campusId: camera.campusId,
     buildingId: camera.buildingId,
     roomId: camera.roomId,
@@ -73,6 +76,8 @@ export async function createEventRecord(input: CreateEventRecordInput) {
   const loc = await resolveLocation(input.cameraId, input.organizationId);
   const detectedAt = input.detectedAt ?? new Date();
 
+  const targetCameraId = loc.cameraDoc ? loc.cameraDoc._id : (mongoose.Types.ObjectId.isValid(input.cameraId) ? new mongoose.Types.ObjectId(input.cameraId) : new mongoose.Types.ObjectId());
+
   const seq = await getNextSequence("event");
   const event = await Event.create({
     eventId: await formatEventId(seq),
@@ -80,7 +85,7 @@ export async function createEventRecord(input: CreateEventRecordInput) {
     campusId: loc.campusId,
     buildingId: loc.buildingId,
     roomId: loc.roomId,
-    cameraId: new mongoose.Types.ObjectId(input.cameraId),
+    cameraId: targetCameraId,
     eventType: input.eventType,
     severity: input.severity,
     confidence: input.confidence ?? null,

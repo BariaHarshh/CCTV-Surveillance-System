@@ -11,8 +11,8 @@
 3. **Restricted Area & Intrusion Detection** (`CAM-03` / `CAM-000003` → `videos/stock/sample6.mp4`): Multi-anchor polygon ROI intrusion monitoring using `cv2.pointPolygonTest`.
 4. **Abandoned Object & Unattended Luggage Detection** (`CAM-04` / `CAM-000004` → `videos/stock/sample7.mp4`): Owner proximity tracking, temporal escalation, and staff dispatch directory.
 5. **Central Risk Assessment & Management Orchestrator**: Unified 0–100 threat score, incident escalation, and compound threat aggregation.
-6. **FastAPI ML Integration Layer (`backend/`)**: Port 8000 MJPEG stream manager with queue-based `FrameDispatcher` and HTTP bridge.
-7. **Next.js Enterprise Web Portal (`web/`)**: Port 3000 monitoring UI with 2×2 live multi-camera autoplay grid, MongoDB Atlas storage, and Socket.IO real-time alerts.
+6. **FastAPI ML Integration Layer (`backend/`)**: Port 8000 MJPEG stream manager with queue-based `FrameDispatcher`, `AsyncDetectionPublisher`, and HTTP bridge.
+7. **Next.js Enterprise Web Portal (`web/`)**: Port 3000 monitoring UI with 2×2 live multi-camera autoplay grid, real-time `Active Events`, `Critical Alerts` telemetry counters, MongoDB Atlas storage, and Socket.IO live events.
 
 ---
 

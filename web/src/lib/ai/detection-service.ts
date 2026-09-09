@@ -1,6 +1,6 @@
 import { connectDB } from "@/lib/db/connect";
 import type { EventSource, EventType } from "@/lib/monitoring/constants";
-import type { AIModuleType } from "@/lib/ai/constants";
+import { MODULE_TO_EVENT, type AIModuleType } from "@/lib/ai/constants";
 import { getOrCreateOrgAISettings, getOrCreateCameraAIConfig, seedDefaultModels } from "@/lib/ai/config-service";
 import { isDuplicateEvent } from "@/lib/ai/deduplication";
 import { evaluateRules } from "@/lib/ai/rule-engine";
@@ -43,12 +43,11 @@ export async function processDetection(input: ProcessDetectionInput) {
   const cameraConfig = await getOrCreateCameraAIConfig(input.organizationId, input.cameraId);
   const moduleConfig = cameraConfig.modules[input.moduleType];
 
-  if (!moduleConfig?.enabled && input.source !== "TEST") {
-    return { skipped: true, reason: "Module disabled for camera" };
-  }
+  const isPythonDetection = input.source === "DETECTION";
+  const isTest = input.source === "TEST";
 
   const detector = getDetector(input.moduleType);
-  if (!detector?.isAvailable() && input.source !== "TEST") {
+  if (!isPythonDetection && !isTest && !detector?.isAvailable()) {
     return { skipped: true, reason: "Detection unavailable — provider not configured" };
   }
 
@@ -61,16 +60,18 @@ export async function processDetection(input: ProcessDetectionInput) {
   };
 
   let output: DetectionOutput | null = null;
-  if (input.source === "TEST" && input.metadata?.eventType) {
+  if ((isTest || isPythonDetection) && input.metadata) {
+    const defaultEvent = (MODULE_TO_EVENT[input.moduleType] as EventType) || "PERSON_DETECTED";
+    const evtType = (input.metadata.eventType as EventType) || defaultEvent;
     output = {
       moduleType: input.moduleType,
-      eventType: input.metadata.eventType as EventType,
+      eventType: evtType,
       confidence: input.confidence ?? 0.85,
       metadata: input.metadata,
-      simulated: true,
+      simulated: isTest,
     };
-  } else {
-    output = await detector!.detect(frame);
+  } else if (detector?.isAvailable()) {
+    output = await detector.detect(frame);
   }
 
   if (!output) return { skipped: true, reason: "No detection output" };
@@ -80,21 +81,33 @@ export async function processDetection(input: ProcessDetectionInput) {
     return { skipped: true, reason: "Below confidence threshold" };
   }
 
-  const zones = input.moduleType === "RESTRICTED_ZONE"
-    ? await getActiveZonesForCamera(input.organizationId, input.cameraId)
-    : [];
+  let ruleResult = null;
+  if (isPythonDetection && output) {
+    ruleResult = {
+      eventType: output.eventType,
+      afterHours: false,
+      locationSensitive: false,
+      restrictedZone: input.moduleType === "RESTRICTED_ZONE",
+      occupancyLevel: (input.metadata?.crowdState as string) || "NORMAL",
+      metadata: input.metadata || {},
+    };
+  } else {
+    const zones = input.moduleType === "RESTRICTED_ZONE"
+      ? await getActiveZonesForCamera(input.organizationId, input.cameraId)
+      : [];
 
-  const ruleResult = await evaluateRules({
-    organizationId: input.organizationId,
-    cameraId: input.cameraId,
-    moduleType: input.moduleType,
-    detection: output,
-    zones,
-    scheduleId: moduleConfig?.scheduleId ?? null,
-    occupancyCapacity: cameraConfig.occupancyCapacity,
-    occupancyThresholds: orgSettings.occupancyThresholds,
-    at: frame.timestamp,
-  });
+    ruleResult = await evaluateRules({
+      organizationId: input.organizationId,
+      cameraId: input.cameraId,
+      moduleType: input.moduleType,
+      detection: output,
+      zones,
+      scheduleId: moduleConfig?.scheduleId ?? null,
+      occupancyCapacity: cameraConfig.occupancyCapacity,
+      occupancyThresholds: orgSettings.occupancyThresholds,
+      at: frame.timestamp,
+    });
+  }
 
   if (!ruleResult) return { skipped: true, reason: "Rule engine suppressed event" };
 

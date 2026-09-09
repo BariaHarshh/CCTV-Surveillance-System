@@ -16,9 +16,9 @@
 * **⚡ One-Click System Launcher (`start_system.py`)**  
   Concurrently runs the **Next.js Enterprise Web Portal** (`http://localhost:3000`), **FastAPI ML Backend** (`http://localhost:8000`), and **4-Camera AI Surveillance Engine** (`app/run_multi_camera.py --headless`) in a single terminal command.
 * **🌐 Next.js 15 Enterprise Web Portal (`web/`)**  
-  Real-time 2x2 multi-camera live video monitoring grid, Socket.IO live alerts, MongoDB Atlas cloud storage, guard incident dispatching, and audit logging.
+  Real-time 2x2 multi-camera live video monitoring grid, live `Active Events` & `Critical Alerts` telemetry counters, Socket.IO live alerts, MongoDB Atlas cloud storage, guard incident dispatching, and audit logging.
 * **⚡ FastAPI Integration Layer (`backend/`)**  
-  Bridge server delivering live MJPEG video streams (`/api/cameras/{id}/stream`) via dedicated async queue worker and pushing structured detection payloads (`/api/internal/detection`) to the Web Portal.
+  Bridge server delivering live MJPEG video streams (`/api/cameras/{id}/stream`) via dedicated async queue worker and pushing structured detection payloads (`/api/internal/detection`) across all 4 cameras via `AsyncDetectionPublisher`.
 * **🎥 Multi-Camera 4-Feed Video Pipeline (`app/run_multi_camera.py`)**  
   Stitches 4 independent CCTV camera feeds (`sample4.mp4`, `sample5.mp4`, `sample6.mp4`, `sample7.mp4`) into a synchronized surveillance pipeline with per-camera status cards and risk telemetry HUDs.
 * **🧠 Centralized Risk Engine (`app/run_risk_management.py`)**  

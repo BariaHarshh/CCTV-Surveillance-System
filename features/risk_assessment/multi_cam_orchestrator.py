@@ -24,6 +24,15 @@ from .event_model import RiskEvent
 from .profiler import PerformanceProfiler
 from .utils import draw_risk_assessment_overlay, UILayoutManager
 from backend.services.stream_manager import stream_manager
+from backend.services.publisher import detection_publisher
+
+CAM_ID_MAP: Dict[str, str] = {
+    "CAM-01": "CAM-000001",
+    "CAM-02": "CAM-000002",
+    "CAM-03": "CAM-000003",
+    "CAM-04": "CAM-000004",
+}
+
 
 class MultiCameraOrchestrator:
     """
@@ -242,6 +251,8 @@ class MultiCameraOrchestrator:
             procs = self.cam_processors.get(cam_id, {})
             cam_score = 5.0
 
+            target_cam_id = CAM_ID_MAP.get(cam_id, cam_id)
+
             # 2. Dynamic Crowd Detection Processor
             if "crowd_detector" in procs:
                 stabilizer = procs["stabilizer"]
@@ -265,6 +276,20 @@ class MultiCameraOrchestrator:
 
                 annotated = draw_crowd_detections(annotated, persons, len(persons), stable_cnt, crowd_out)
 
+                # Publish crowd detection payload to Next.js bridge
+                try:
+                    detection_publisher.publish_crowd_detection(
+                        raw_count=len(persons),
+                        stable_count=stable_cnt,
+                        crowd_info=crowd_out,
+                        tracked_persons=persons,
+                        frame_width=frame.shape[1],
+                        frame_height=frame.shape[0],
+                        camera_id=target_cam_id,
+                    )
+                except Exception as e:
+                    pass
+
             # 3. Dynamic Behavior Processor
             if "behavior_processor" in procs:
                 beh_processor = procs["behavior_processor"]
@@ -280,6 +305,23 @@ class MultiCameraOrchestrator:
                 elif has_fall:
                     cam_score = max(cam_score, 60.0)
 
+                if has_fall or has_fight or len(persons) > 0:
+                    try:
+                        event_type = "PERSON_FALL" if has_fall else ("POTENTIAL_VIOLENT_ACTIVITY" if has_fight else "PERSON_DETECTED")
+                        detection_publisher.publish_detection(
+                            module_type="PERSON_DETECTION",
+                            confidence=0.88,
+                            camera_id=target_cam_id,
+                            metadata={
+                                "eventType": event_type,
+                                "personCount": len(persons),
+                                "behaviorState": "FALL_DETECTED" if has_fall else ("FIGHT_DETECTED" if has_fight else "NORMAL"),
+                            },
+                            force_immediate=(has_fall or has_fight)
+                        )
+                    except Exception:
+                        pass
+
                 annotated = draw_behavior_overlay(annotated, persons, beh_out, show_hud=True)
 
             # 4. Dynamic Restricted Area Processor
@@ -293,6 +335,20 @@ class MultiCameraOrchestrator:
                 has_breach = ra_out.get("summary", {}).get("has_breach", False)
                 if has_breach:
                     cam_score = max(cam_score, 75.0)
+                    try:
+                        detection_publisher.publish_detection(
+                            module_type="RESTRICTED_ZONE",
+                            confidence=0.92,
+                            camera_id=target_cam_id,
+                            metadata={
+                                "eventType": "UNAUTHORIZED_ENTRY",
+                                "intruderCount": len(persons),
+                                "zoneStatus": "ALERT",
+                            },
+                            force_immediate=True
+                        )
+                    except Exception:
+                        pass
 
                 annotated = draw_restricted_area_overlay(
                     annotated, persons, ra_out, zone_manager=ra_processor.zone_manager, show_hud=True
@@ -309,6 +365,20 @@ class MultiCameraOrchestrator:
                 has_unattended = len(ab_out.get("active_events", [])) > 0
                 if has_unattended:
                     cam_score = max(cam_score, 50.0)
+                    try:
+                        detection_publisher.publish_detection(
+                            module_type="ABANDONED_OBJECT",
+                            confidence=0.85,
+                            camera_id=target_cam_id,
+                            metadata={
+                                "eventType": "ABANDONED_OBJECT",
+                                "unattendedCount": len(ab_out.get("active_events", [])),
+                                "objectStatus": "UNATTENDED",
+                            },
+                            force_immediate=True
+                        )
+                    except Exception:
+                        pass
 
                 annotated = draw_abandoned_object_overlay(
                     frame=annotated,

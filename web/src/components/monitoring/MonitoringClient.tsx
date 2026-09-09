@@ -93,6 +93,7 @@ export function MonitoringClient({ user, portal }: { user: SafeUser; portal: "ad
       }
     },
     onEventCreated: () => load(),
+    onDetectionCreated: () => load(),
   });
 
   async function runTest(action: string) {

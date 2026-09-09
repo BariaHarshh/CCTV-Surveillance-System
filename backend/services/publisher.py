@@ -189,6 +189,45 @@ class AsyncDetectionPublisher:
         except queue.Full:
             return False
 
+    def publish_detection(
+        self,
+        module_type: str,
+        confidence: float,
+        metadata: Dict[str, Any],
+        camera_id: Optional[str] = None,
+        organization_id: Optional[str] = None,
+        force_immediate: bool = False,
+    ) -> bool:
+        """Publishes any generic detection payload to Next.js internal detection API."""
+        if not self.enabled:
+            return False
+
+        now = time.time()
+        if not force_immediate and (now - self.last_enqueued_time < self.update_interval):
+            return False
+
+        payload = DetectionPayload(
+            organizationId=organization_id or self.organization_id,
+            cameraId=camera_id or self.camera_id,
+            moduleType=module_type,
+            confidence=round(confidence, 3),
+            source="DETECTION",
+            metadata=metadata,
+        )
+
+        try:
+            if self.queue.full():
+                try:
+                    self.queue.get_nowait()
+                except queue.Empty:
+                    pass
+            self.queue.put_nowait((payload, force_immediate))
+            self.last_enqueued_time = now
+            return True
+        except queue.Full:
+            return False
+
 
 # Singleton default publisher instance
 detection_publisher = AsyncDetectionPublisher()
+
