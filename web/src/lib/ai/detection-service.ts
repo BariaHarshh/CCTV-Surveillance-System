@@ -1,4 +1,6 @@
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/db/connect";
+import { Camera } from "@/models/Camera";
 import type { EventSource, EventType } from "@/lib/monitoring/constants";
 import { MODULE_TO_EVENT, type AIModuleType } from "@/lib/ai/constants";
 import { getOrCreateOrgAISettings, getOrCreateCameraAIConfig, seedDefaultModels } from "@/lib/ai/config-service";
@@ -38,9 +40,18 @@ export async function processDetection(input: ProcessDetectionInput) {
   await ensureInit();
   await connectDB();
 
+  // If input.cameraId is a human-readable ID (e.g. "CAM-000002"), resolve camera & organization
+  const isCameraMongoId = mongoose.Types.ObjectId.isValid(input.cameraId);
+  const cameraQuery = isCameraMongoId
+    ? { $or: [{ _id: input.cameraId }, { cameraId: input.cameraId }] }
+    : { cameraId: input.cameraId };
+  const cameraDoc = await Camera.findOne(cameraQuery);
+  const effectiveOrgId = cameraDoc?.organizationId ? cameraDoc.organizationId.toString() : input.organizationId;
+  const effectiveCameraId = cameraDoc ? cameraDoc._id.toString() : input.cameraId;
+
   queueMetrics.detectionJobs++;
-  const orgSettings = await getOrCreateOrgAISettings(input.organizationId);
-  const cameraConfig = await getOrCreateCameraAIConfig(input.organizationId, input.cameraId);
+  const orgSettings = await getOrCreateOrgAISettings(effectiveOrgId);
+  const cameraConfig = await getOrCreateCameraAIConfig(effectiveOrgId, effectiveCameraId);
   const moduleConfig = cameraConfig.modules[input.moduleType];
 
   const isPythonDetection = input.source === "DETECTION";
@@ -52,8 +63,8 @@ export async function processDetection(input: ProcessDetectionInput) {
   }
 
   const frame: DetectionFrame = {
-    cameraId: input.cameraId,
-    organizationId: input.organizationId,
+    cameraId: effectiveCameraId,
+    organizationId: effectiveOrgId,
     timestamp: input.detectedAt ?? new Date(),
     moduleType: input.moduleType,
     metadata: { confidence: input.confidence, ...input.metadata },
@@ -93,12 +104,12 @@ export async function processDetection(input: ProcessDetectionInput) {
     };
   } else {
     const zones = input.moduleType === "RESTRICTED_ZONE"
-      ? await getActiveZonesForCamera(input.organizationId, input.cameraId)
+      ? await getActiveZonesForCamera(effectiveOrgId, effectiveCameraId)
       : [];
 
     ruleResult = await evaluateRules({
-      organizationId: input.organizationId,
-      cameraId: input.cameraId,
+      organizationId: effectiveOrgId,
+      cameraId: effectiveCameraId,
       moduleType: input.moduleType,
       detection: output,
       zones,
@@ -115,8 +126,8 @@ export async function processDetection(input: ProcessDetectionInput) {
   if (!input.skipDedup) {
     const dup = await isDuplicateEvent(
       {
-        organizationId: input.organizationId,
-        cameraId: input.cameraId,
+        organizationId: effectiveOrgId,
+        cameraId: effectiveCameraId,
         eventType: ruleResult.eventType,
         zoneId: ruleResult.metadata.zoneId as string | undefined,
       },
@@ -126,8 +137,8 @@ export async function processDetection(input: ProcessDetectionInput) {
   }
 
   const relatedIds = await findRelatedEvents(
-    input.organizationId,
-    input.cameraId,
+    effectiveOrgId,
+    effectiveCameraId,
     ruleResult.eventType,
     frame.timestamp
   );
@@ -152,8 +163,8 @@ export async function processDetection(input: ProcessDetectionInput) {
   });
 
   const result = await createEventRecord({
-    organizationId: input.organizationId,
-    cameraId: input.cameraId,
+    organizationId: effectiveOrgId,
+    cameraId: effectiveCameraId,
     eventType: ruleResult.eventType,
     confidence: output.confidence,
     source: input.source ?? (output.simulated ? "TEST" : "DETECTION"),
@@ -175,10 +186,12 @@ export async function processDetection(input: ProcessDetectionInput) {
   queueMetrics.eventJobs++;
   queueMetrics.lastProcessedAt = new Date();
 
-  emitToOrganization(input.organizationId, SOCKET_EVENTS.DETECTION_CREATED, {
+  emitToOrganization(effectiveOrgId, SOCKET_EVENTS.DETECTION_CREATED, {
     moduleType: input.moduleType,
     eventId: result.event.eventId,
-    cameraId: input.cameraId,
+    cameraId: cameraDoc?.cameraId ?? input.cameraId,
+    id: effectiveCameraId,
+    metadata: result.event.metadata,
   });
 
   return result;

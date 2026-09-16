@@ -99,7 +99,14 @@ export async function deleteRestrictedZone(organizationId: string, id: string) {
 
 export async function getActiveZonesForCamera(organizationId: string, cameraId: string) {
   await connectDB();
+  const isMongoId = mongoose.Types.ObjectId.isValid(cameraId);
+  const cameraQuery = isMongoId ? { $or: [{ _id: cameraId }, { cameraId }] } : { cameraId };
+  const camera = await Camera.findOne(orgFilter(organizationId, cameraQuery)).select("_id");
+  const targetCameraObjectId = camera ? camera._id : (isMongoId ? new mongoose.Types.ObjectId(cameraId) : null);
+
+  if (!targetCameraObjectId) return [];
+
   return RestrictedZone.find(
-    orgFilter(organizationId, { cameraId: new mongoose.Types.ObjectId(cameraId), status: "ACTIVE" })
+    orgFilter(organizationId, { cameraId: targetCameraObjectId, status: "ACTIVE" })
   );
 }

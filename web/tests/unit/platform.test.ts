@@ -32,3 +32,9 @@ describe("webhook signatures", () => {
     expect(sig).toHaveLength(64);
   });
 });
+
+describe("Camera ID handling in getOrCreateCameraAIConfig", () => {
+  it("validates mongoose.Types.ObjectId.isValid on human-readable IDs", () => {
+    expect(import("mongoose").then(m => m.default.Types.ObjectId.isValid("CAM-000002"))).resolves.toBe(false);
+  });
+});

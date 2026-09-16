@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/db/connect";
 import { Event } from "@/models/Event";
+import { Camera } from "@/models/Camera";
 import { orgFilter } from "@/lib/campus/service";
 import type { EventType } from "@/lib/monitoring/constants";
 
@@ -14,9 +16,14 @@ export async function findRelatedEvents(
   await connectDB();
   const since = new Date(detectedAt.getTime() - CORRELATION_WINDOW_MS);
 
+  const isMongoId = mongoose.Types.ObjectId.isValid(cameraId);
+  const cameraQuery = isMongoId ? { $or: [{ _id: cameraId }, { cameraId }] } : { cameraId };
+  const camera = await Camera.findOne(orgFilter(organizationId, cameraQuery)).select("_id");
+  const targetCameraId = camera ? camera._id : (isMongoId ? new mongoose.Types.ObjectId(cameraId) : null);
+
   const related = await Event.find(
     orgFilter(organizationId, {
-      cameraId,
+      ...(targetCameraId ? { cameraId: targetCameraId } : {}),
       detectedAt: { $gte: since, $lte: detectedAt },
       status: { $nin: ["DISMISSED", "FALSE_POSITIVE"] },
     })
@@ -39,8 +46,17 @@ export async function getRecentEventTypesForCamera(
 ): Promise<EventType[]> {
   await connectDB();
   const since = new Date(Date.now() - withinMs);
+
+  const isMongoId = mongoose.Types.ObjectId.isValid(cameraId);
+  const cameraQuery = isMongoId ? { $or: [{ _id: cameraId }, { cameraId }] } : { cameraId };
+  const camera = await Camera.findOne(orgFilter(organizationId, cameraQuery)).select("_id");
+  const targetCameraId = camera ? camera._id : (isMongoId ? new mongoose.Types.ObjectId(cameraId) : null);
+
   const events = await Event.find(
-    orgFilter(organizationId, { cameraId, detectedAt: { $gte: since } })
+    orgFilter(organizationId, {
+      ...(targetCameraId ? { cameraId: targetCameraId } : {}),
+      detectedAt: { $gte: since },
+    })
   )
     .select("eventType")
     .limit(20);
