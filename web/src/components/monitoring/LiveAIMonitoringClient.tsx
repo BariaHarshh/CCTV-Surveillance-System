@@ -102,8 +102,10 @@ export function LiveAIMonitoringClient({
   }, [selectedCameraId]);
 
   // Load details for selected camera
-  const loadCameraDetail = useCallback(async (camId: string) => {
-    setLoading(true);
+  const loadCameraDetail = useCallback(async (camId: string, isInitial: boolean = false) => {
+    if (isInitial) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const res = await fetch(`/api/monitoring/cameras/${camId}`, { credentials: "include" });
@@ -155,9 +157,13 @@ export function LiveAIMonitoringClient({
         });
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error loading camera detail");
+      if (isInitial) {
+        setError(e instanceof Error ? e.message : "Error loading camera detail");
+      }
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -167,9 +173,9 @@ export function LiveAIMonitoringClient({
 
   useEffect(() => {
     if (selectedCameraId) {
-      loadCameraDetail(selectedCameraId);
+      loadCameraDetail(selectedCameraId, !camera);
     }
-  }, [selectedCameraId, loadCameraDetail]);
+  }, [selectedCameraId, loadCameraDetail, camera]);
 
   // Realtime Socket.IO handler
   const { status: realtimeStatus } = useMonitoringSocket({
@@ -217,7 +223,7 @@ export function LiveAIMonitoringClient({
     onEventCreated: (payload) => {
       const camId = payload.cameraId as string;
       if (selectedCameraId && (selectedCameraId === camId || camera?.id === camId || camera?.cameraId === camId)) {
-        loadCameraDetail(selectedCameraId);
+        loadCameraDetail(selectedCameraId, false);
       }
     },
   });

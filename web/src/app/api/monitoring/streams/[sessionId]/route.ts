@@ -36,7 +36,10 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     return new Response(upstream.body, {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "no-store",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0",
+        "X-Accel-Buffering": "no",
       },
     });
   } catch {

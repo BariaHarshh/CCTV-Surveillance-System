@@ -34,7 +34,8 @@ describe("webhook signatures", () => {
 });
 
 describe("Camera ID handling in getOrCreateCameraAIConfig", () => {
-  it("validates mongoose.Types.ObjectId.isValid on human-readable IDs", () => {
-    expect(import("mongoose").then(m => m.default.Types.ObjectId.isValid("CAM-000002"))).resolves.toBe(false);
+  it("validates mongoose.Types.ObjectId.isValid on human-readable IDs", async () => {
+    const mongoose = (await import("mongoose")).default;
+    expect(mongoose.Types.ObjectId.isValid("CAM-000002")).toBe(false);
   });
 });

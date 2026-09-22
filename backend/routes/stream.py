@@ -20,8 +20,8 @@ router = APIRouter(prefix="/api/cameras", tags=["Live Streaming"])
 )
 async def get_camera_stream(
     camera_id: str,
-    fps: int = Query(default=25, ge=1, le=60, description="Target streaming frame rate"),
-    quality: int = Query(default=80, ge=30, le=100, description="JPEG compression quality"),
+    fps: int = Query(default=10, ge=1, le=30, description="Target streaming frame rate"),
+    quality: int = Query(default=65, ge=30, le=95, description="JPEG compression quality"),
 ):
     """
     Returns a continuous MJPEG video stream (multipart/x-mixed-replace)
@@ -41,6 +41,7 @@ async def get_camera_stream(
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",
+            "X-Accel-Buffering": "no",
             "Connection": "close",
         },
     )

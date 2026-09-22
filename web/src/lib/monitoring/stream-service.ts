@@ -56,7 +56,7 @@ export async function createStreamSession(organizationId: string, cameraDbId: st
       expiresAt: new Date(expiresAt).toISOString(),
       cameraId: camera.cameraId,
       status: camera.status,
-      note: "Secure proxy stream — credentials never exposed to browser",
+      note: "Live AI Surveillance Stream (10 FPS / 640x360)",
     };
   }
 
@@ -104,7 +104,13 @@ export async function getStreamSessionProxy(sessionId: string, organizationId: s
     }
   }
 
-  return { fetchUrl, contentType: "multipart/x-mixed-replace" };
+  // Ensure 10 FPS and quality 65 are requested from ML backend
+  if (!fetchUrl.includes("fps=")) {
+    const sep = fetchUrl.includes("?") ? "&" : "?";
+    fetchUrl = `${fetchUrl}${sep}fps=10&quality=65`;
+  }
+
+  return { fetchUrl, contentType: "multipart/x-mixed-replace; boundary=frame" };
 }
 
 export function stopStreamSession(sessionId: string): void {

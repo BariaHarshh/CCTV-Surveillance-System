@@ -176,5 +176,38 @@ class TestStreaming(unittest.TestCase):
         asyncio.run(_test_all())
 
 
+    def test_latest_frame_buffer_bounded(self):
+        """Verify that sending multiple frames only retains the latest frame without queue growth."""
+        manager = StreamFrameManager()
+        cam_id = "bounded-test-cam"
+
+        # Frame 1: Blue
+        f1 = np.zeros((100, 100, 3), dtype=np.uint8)
+        f1[:, :] = (255, 0, 0)
+        manager.update_frame(cam_id, f1, frame_index=1)
+
+        # Frame 2: Red
+        f2 = np.zeros((100, 100, 3), dtype=np.uint8)
+        f2[:, :] = (0, 0, 255)
+        manager.update_frame(cam_id, f2, frame_index=2)
+
+        resolved_id = manager.resolve_camera_id(cam_id)
+        with manager._lock:
+            # Must only have exactly 1 frame in buffer
+            self.assertEqual(manager._frames[resolved_id]["frame_index"], 2)
+
+    def test_stream_resolution_scaling(self):
+        """Verify that large 1080p frames are automatically scaled down to <=640x360 for web streaming."""
+        manager = StreamFrameManager()
+        cam_id = "scale-test-cam"
+
+        large_frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        manager.update_frame(cam_id, large_frame)
+
+        status = manager.get_stream_status(cam_id)
+        self.assertEqual(status["resolution"], "640x360")
+
+
 if __name__ == "__main__":
     unittest.main()
+

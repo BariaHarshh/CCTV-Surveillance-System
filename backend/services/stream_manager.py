@@ -5,6 +5,7 @@ for live AI video streaming to web browsers without duplicate inference.
 """
 
 import asyncio
+import http.client
 import logging
 import threading
 import time
@@ -33,46 +34,73 @@ CAMERA_STREAM_ID_MAP: Dict[str, str] = {
 }
 
 
-import queue
-import urllib.request
-
 class FrameDispatcher:
-    """Dedicated background worker thread for non-blocking HTTP dispatch to FastAPI stream buffer."""
+    """
+    Dedicated background worker thread for non-blocking HTTP dispatch to FastAPI stream buffer.
+    Maintains a bounded latest-frame buffer and reuses persistent TCP connection to avoid TIME_WAIT sockets.
+    """
     def __init__(self):
-        self._queue = queue.Queue(maxsize=64)
+        self._lock = threading.Lock()
+        self._latest_frames: Dict[str, bytes] = {}
+        self._wake_event = threading.Event()
+        self._last_sent: Dict[str, float] = {}
         self._thread = threading.Thread(target=self._run, daemon=True, name="FrameDispatcher")
         self._thread.start()
 
     def dispatch(self, camera_id: str, jpeg_bytes: bytes):
-        try:
-            if self._queue.full():
-                try:
-                    self._queue.get_nowait()
-                except Exception:
-                    pass
-            self._queue.put_nowait((camera_id, jpeg_bytes))
-        except Exception:
-            pass
+        """Stores the latest frame for a camera, immediately replacing any pending older frame."""
+        with self._lock:
+            self._latest_frames[camera_id] = jpeg_bytes
+        self._wake_event.set()
 
     def _run(self):
+        conn: Optional[http.client.HTTPConnection] = None
         while True:
             try:
-                item = self._queue.get(timeout=1.0)
-                if item is None:
-                    continue
-                camera_id, jpeg_bytes = item
-                req = urllib.request.Request(
-                    f"http://127.0.0.1:8000/api/cameras/{camera_id}/frame",
-                    data=jpeg_bytes,
-                    headers={"Content-Type": "image/jpeg"},
-                    method="POST"
-                )
-                with urllib.request.urlopen(req, timeout=1.5) as resp:
-                    resp.read()
+                self._wake_event.wait(timeout=0.08)
+                self._wake_event.clear()
+
+                with self._lock:
+                    if not self._latest_frames:
+                        continue
+                    snapshot = self._latest_frames.copy()
+                    self._latest_frames.clear()
+
+                now = time.time()
+                for camera_id, jpeg_bytes in snapshot.items():
+                    # Rate limit dispatch per camera to ~12 FPS
+                    last_time = self._last_sent.get(camera_id, 0.0)
+                    if (now - last_time) < 0.07:
+                        continue
+
+                    if conn is None:
+                        try:
+                            conn = http.client.HTTPConnection("127.0.0.1", 8000, timeout=1.0)
+                        except Exception:
+                            conn = None
+                            continue
+
+                    try:
+                        conn.request(
+                            "POST",
+                            f"/api/cameras/{camera_id}/frame",
+                            body=jpeg_bytes,
+                            headers={"Content-Type": "image/jpeg"}
+                        )
+                        resp = conn.getresponse()
+                        resp.read()
+                        self._last_sent[camera_id] = now
+                    except Exception:
+                        try:
+                            if conn:
+                                conn.close()
+                        except Exception:
+                            pass
+                        conn = None
+
             except Exception:
                 pass
-            finally:
-                time.sleep(0.001)
+
 
 _dispatcher = FrameDispatcher()
 
@@ -115,15 +143,15 @@ class StreamFrameManager:
         q = quality or settings.stream_jpeg_quality
         h, w = frame.shape[:2]
 
-        # Normalize high-resolution video sources (e.g. 1080p / 1892p) for smooth web streaming
-        if w > 1280 or h > 720:
-            scale = min(1280 / w, 720 / h)
-            nw, nh = int(w * scale), int(h * scale)
-            frame = cv2.resize(frame, (nw, nh), interpolation=cv2.INTER_AREA)
+        # Normalize high-resolution video sources for lightweight web streaming (640x360)
+        if w > 640 or h > 360:
+            scale = min(640 / w, 360 / h)
+            nw, nh = max(1, int(w * scale)), max(1, int(h * scale))
+            frame = cv2.resize(frame, (nw, nh), interpolation=cv2.INTER_LINEAR)
             h, w = nh, nw
 
         try:
-            encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), q]
+            encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), max(30, min(95, q))]
             success, encoded_image = cv2.imencode(".jpg", frame, encode_params)
             if not success:
                 return False
@@ -161,7 +189,7 @@ class StreamFrameManager:
                 self._frames[camera_id] = frame_data
             self._condition.notify_all()
 
-        # Non-blocking async queue dispatch to FastAPI stream router
+        # Non-blocking latest-frame dispatch to FastAPI stream router
         _dispatcher.dispatch(resolved_id, jpeg_bytes)
         if camera_id != resolved_id:
             _dispatcher.dispatch(camera_id, jpeg_bytes)
@@ -220,30 +248,30 @@ class StreamFrameManager:
         self,
         text: str = "CAMERA STREAM OFFLINE",
         width: int = 640,
-        height: int = 480,
+        height: int = 360,
     ) -> bytes:
         """Generates a clean fallback placeholder JPEG."""
         img = np.zeros((height, width, 3), dtype=np.uint8)
         img[:] = (25, 25, 30)  # Dark slate background
 
         # Draw border
-        cv2.rectangle(img, (10, 10), (width - 10, height - 10), (60, 60, 80), 2)
+        cv2.rectangle(img, (8, 8), (width - 8, height - 8), (60, 60, 80), 2)
 
         # Draw Title
         font = cv2.FONT_HERSHEY_SIMPLEX
         lines = text.split("\n")
-        y_offset = height // 2 - (len(lines) * 20)
+        y_offset = max(40, height // 2 - (len(lines) * 18))
         for line in lines:
-            (tw, th), _ = cv2.getTextSize(line, font, 0.6, 1)
-            tx = max(20, (width - tw) // 2)
-            cv2.putText(img, line, (tx, y_offset), font, 0.6, (180, 180, 200), 1, cv2.LINE_AA)
-            y_offset += th + 16
+            (tw, th), _ = cv2.getTextSize(line, font, 0.55, 1)
+            tx = max(16, (width - tw) // 2)
+            cv2.putText(img, line, (tx, y_offset), font, 0.55, (180, 180, 200), 1, cv2.LINE_AA)
+            y_offset += th + 14
 
         # Draw timestamp
         ts = time.strftime("%Y-%m-%d %H:%M:%S")
-        cv2.putText(img, ts, (20, height - 25), font, 0.45, (100, 100, 120), 1, cv2.LINE_AA)
+        cv2.putText(img, ts, (16, height - 16), font, 0.4, (100, 100, 120), 1, cv2.LINE_AA)
 
-        _, encoded = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 75])
+        _, encoded = cv2.imencode(".jpg", img, [int(cv2.IMWRITE_JPEG_QUALITY), 65])
         return encoded.tobytes()
 
     async def generate_mjpeg_stream(
@@ -253,17 +281,16 @@ class StreamFrameManager:
         quality: Optional[int] = None,
     ):
         """
-        Async generator yielding multipart/x-mixed-replace MJPEG stream chunks.
-        Compatible with all standard browser <img> tags and media viewers.
+        Async generator yielding continuous multipart/x-mixed-replace MJPEG stream chunks.
+        Pipes steady latest-frame chunks at target FPS (default 10 FPS) for smooth browser rendering.
         """
         resolved_id = self.resolve_camera_id(camera_id)
         try:
             fps = int(target_fps) if target_fps is not None else settings.stream_fps
         except Exception:
             fps = settings.stream_fps
-        frame_interval = 1.0 / max(1, min(60, fps))
-
-        last_yielded_ts = 0.0
+        fps = max(1, min(30, fps))
+        frame_interval = 1.0 / fps
 
         try:
             while True:
@@ -272,14 +299,13 @@ class StreamFrameManager:
 
                 with self._lock:
                     data = self._frames.get(resolved_id)
-                    if data and (time.time() - data["timestamp"] <= 3.0):
+                    if data and (start_loop - data["timestamp"] <= 3.0):
                         frame_bytes = data["jpeg_bytes"]
-                        last_yielded_ts = data["timestamp"]
 
                 if frame_bytes is None:
                     # Provide placeholder if camera is offline / warming up
                     frame_bytes = self.create_placeholder_jpeg(
-                        f"AI CAMPUS GUARDIAN\nCamera: {camera_id}\nStream Offline / Initializing..."
+                        f"AI CAMPUS GUARDIAN\nCamera: {camera_id}\nStream Initializing..."
                     )
 
                 # Format standard multipart/x-mixed-replace frame
@@ -290,16 +316,16 @@ class StreamFrameManager:
                 )
                 yield header + frame_bytes + b"\r\n"
 
-                # Dynamic sleep to maintain target stream FPS
+                # Dynamic sleep to maintain steady target stream FPS
                 elapsed = time.time() - start_loop
-                sleep_time = max(0.005, frame_interval - elapsed)
+                sleep_time = max(0.01, frame_interval - elapsed)
                 await asyncio.sleep(sleep_time)
 
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, GeneratorExit):
             # Client disconnected gracefully
             pass
         except Exception as exc:
-            logger.warning(f"Error streaming camera {camera_id}: {exc}")
+            logger.debug(f"Stream client ended for camera {camera_id}: {exc}")
 
 
 # Singleton stream manager instance

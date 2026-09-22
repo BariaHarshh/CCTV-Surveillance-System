@@ -91,13 +91,13 @@ export function CameraStreamView({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             key={retryKey}
-            src={stream.url}
+            src={`${stream.url}${stream.url.includes("?") ? "&" : "?"}_t=${retryKey}`}
             alt="Live camera feed"
             className="aspect-video w-full object-cover"
             onError={() => {
               setTimeout(() => {
                 if (activeRef.current) setRetryKey((k) => k + 1);
-              }, 1000);
+              }, 2000);
             }}
           />
           <DetectionOverlay detections={detections} zones={zones} />
