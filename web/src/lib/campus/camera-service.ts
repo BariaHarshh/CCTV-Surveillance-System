@@ -102,8 +102,9 @@ export async function listCameras(organizationId: string, params?: { q?: string;
 
 export async function getCameraById(organizationId: string, id: string) {
   await connectDB();
-  if (!mongoose.Types.ObjectId.isValid(id)) return null;
-  const c = await Camera.findOne(orgFilter(organizationId, { _id: id }));
+  const isObjectId = mongoose.Types.ObjectId.isValid(id);
+  const query = isObjectId ? { _id: id } : { cameraId: id };
+  const c = await Camera.findOne(orgFilter(organizationId, query));
   if (!c) return null;
   return toCameraPublic(c, await resolveLocation(c));
 }

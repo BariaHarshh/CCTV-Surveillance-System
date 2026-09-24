@@ -185,14 +185,10 @@ class StreamFrameManager:
                     tracker["start"] = now
 
             self._frames[resolved_id] = frame_data
-            if camera_id != resolved_id:
-                self._frames[camera_id] = frame_data
             self._condition.notify_all()
 
-        # Non-blocking latest-frame dispatch to FastAPI stream router
+        # Non-blocking latest-frame dispatch to FastAPI stream router (single dispatch per canonical stream ID)
         _dispatcher.dispatch(resolved_id, jpeg_bytes)
-        if camera_id != resolved_id:
-            _dispatcher.dispatch(camera_id, jpeg_bytes)
 
         return True
 

@@ -207,7 +207,37 @@ class TestStreaming(unittest.TestCase):
         status = manager.get_stream_status(cam_id)
         self.assertEqual(status["resolution"], "640x360")
 
+    def test_alias_resolution_single_frame_entry(self):
+        """Verify updating via alias CAM-01 or CAM-000001 only stores one entry under resolved ID and is accessible by all aliases."""
+        manager = StreamFrameManager()
+        app_id = "CAM-01"
+        ml_id = "66d550000000000000000002"
+        canonical_app_id = "CAM-000001"
+
+        frame = np.zeros((120, 160, 3), dtype=np.uint8)
+        manager.update_frame(app_id, frame, frame_index=42)
+
+        # 1. Verify stored only under resolved canonical ID
+        with manager._lock:
+            self.assertIn(ml_id, manager._frames)
+            self.assertEqual(len(manager._frames), 1)
+
+        # 2. Verify all aliases access the exact same frame bytes
+        bytes_from_ml = manager.get_latest_frame_bytes(ml_id)
+        bytes_from_app = manager.get_latest_frame_bytes(app_id)
+        bytes_from_canonical = manager.get_latest_frame_bytes(canonical_app_id)
+
+        self.assertIsNotNone(bytes_from_ml)
+        self.assertEqual(bytes_from_ml, bytes_from_app)
+        self.assertEqual(bytes_from_ml, bytes_from_canonical)
+
+        # 3. Verify get_all_streams has exactly 1 entry
+        all_streams = manager.get_all_streams()
+        self.assertEqual(len(all_streams), 1)
+        self.assertEqual(all_streams[0]["cameraId"], ml_id)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

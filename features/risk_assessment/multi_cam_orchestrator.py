@@ -286,6 +286,9 @@ class MultiCameraOrchestrator:
                         frame_width=frame.shape[1],
                         frame_height=frame.shape[0],
                         camera_id=target_cam_id,
+                        frame_index=frame_index,
+                        current_time=current_time,
+                        risk_score=cam_score,
                     )
                 except Exception as e:
                     pass
@@ -305,22 +308,20 @@ class MultiCameraOrchestrator:
                 elif has_fall:
                     cam_score = max(cam_score, 60.0)
 
-                if has_fall or has_fight or len(persons) > 0:
-                    try:
-                        event_type = "PERSON_FALL" if has_fall else ("POTENTIAL_VIOLENT_ACTIVITY" if has_fight else "PERSON_DETECTED")
-                        detection_publisher.publish_detection(
-                            module_type="PERSON_DETECTION",
-                            confidence=0.88,
-                            camera_id=target_cam_id,
-                            metadata={
-                                "eventType": event_type,
-                                "personCount": len(persons),
-                                "behaviorState": "FALL_DETECTED" if has_fall else ("FIGHT_DETECTED" if has_fight else "NORMAL"),
-                            },
-                            force_immediate=(has_fall or has_fight)
-                        )
-                    except Exception:
-                        pass
+                # Publish rich structured behavior metadata
+                try:
+                    detection_publisher.publish_behavior_detection(
+                        tracked_persons=persons,
+                        behavior_out=beh_out,
+                        frame_width=frame.shape[1],
+                        frame_height=frame.shape[0],
+                        camera_id=target_cam_id,
+                        frame_index=frame_index,
+                        current_time=current_time,
+                        risk_score=cam_score,
+                    )
+                except Exception:
+                    pass
 
                 annotated = draw_behavior_overlay(annotated, persons, beh_out, show_hud=True)
 
@@ -335,20 +336,22 @@ class MultiCameraOrchestrator:
                 has_breach = ra_out.get("summary", {}).get("has_breach", False)
                 if has_breach:
                     cam_score = max(cam_score, 75.0)
-                    try:
-                        detection_publisher.publish_detection(
-                            module_type="RESTRICTED_ZONE",
-                            confidence=0.92,
-                            camera_id=target_cam_id,
-                            metadata={
-                                "eventType": "UNAUTHORIZED_ENTRY",
-                                "intruderCount": len(persons),
-                                "zoneStatus": "ALERT",
-                            },
-                            force_immediate=True
-                        )
-                    except Exception:
-                        pass
+
+                # Publish rich structured restricted zone metadata
+                try:
+                    detection_publisher.publish_restricted_area_detection(
+                        tracked_persons=persons,
+                        restricted_out=ra_out,
+                        zone_manager=ra_processor.zone_manager,
+                        frame_width=frame.shape[1],
+                        frame_height=frame.shape[0],
+                        camera_id=target_cam_id,
+                        frame_index=frame_index,
+                        current_time=current_time,
+                        risk_score=cam_score,
+                    )
+                except Exception:
+                    pass
 
                 annotated = draw_restricted_area_overlay(
                     annotated, persons, ra_out, zone_manager=ra_processor.zone_manager, show_hud=True
@@ -365,20 +368,22 @@ class MultiCameraOrchestrator:
                 has_unattended = len(ab_out.get("active_events", [])) > 0
                 if has_unattended:
                     cam_score = max(cam_score, 50.0)
-                    try:
-                        detection_publisher.publish_detection(
-                            module_type="ABANDONED_OBJECT",
-                            confidence=0.85,
-                            camera_id=target_cam_id,
-                            metadata={
-                                "eventType": "ABANDONED_OBJECT",
-                                "unattendedCount": len(ab_out.get("active_events", [])),
-                                "objectStatus": "UNATTENDED",
-                            },
-                            force_immediate=True
-                        )
-                    except Exception:
-                        pass
+
+                # Publish rich structured abandoned object metadata
+                try:
+                    detection_publisher.publish_abandoned_object_detection(
+                        tracked_objects=objects,
+                        tracked_persons=persons,
+                        abandoned_out=ab_out,
+                        frame_width=frame.shape[1],
+                        frame_height=frame.shape[0],
+                        camera_id=target_cam_id,
+                        frame_index=frame_index,
+                        current_time=current_time,
+                        risk_score=cam_score,
+                    )
+                except Exception:
+                    pass
 
                 annotated = draw_abandoned_object_overlay(
                     frame=annotated,
@@ -409,19 +414,9 @@ class MultiCameraOrchestrator:
         self.profiler.end_frame()
         perf_summary = self.profiler.get_summary()
 
-        # Render 2x2 Quad Grid Dashboard
+        # Render 2x2 Quad Grid Dashboard (retained for local GUI display if non-headless)
         quad_grid = self.render_quad_grid(annotated_frames, risk_output, cam_risk_scores, perf_summary)
         self.profiler.mark_stage("ui_render")
-
-        # Update composite quad grid stream buffer
-        try:
-            stream_manager.update_frame(
-                camera_id="CAM-QUAD-GRID",
-                frame=quad_grid,
-                frame_index=frame_index,
-            )
-        except Exception:
-            pass
 
         return {
             "quad_grid": quad_grid,

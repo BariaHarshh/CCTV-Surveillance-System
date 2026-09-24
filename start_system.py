@@ -10,7 +10,40 @@ import subprocess
 import signal
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-WEB_APP_DIR = os.path.join(BASE_DIR, "web")
+
+def resolve_web_app_dir() -> str:
+    """
+    Resolves the active frontend web application directory with priority:
+      1. AI_CAMPUS_WEB_DIR environment variable (if explicitly set and valid)
+      2. Sibling directory 'AI_Campus_Guardian_Web_app-main' (primary standalone web repository)
+      3. Sibling directory 'AI_Campus_Guardian_Web_app'
+      4. Fallback legacy 'web' directory inside the ML repo
+    """
+    candidates = []
+
+    # 1. Environment variable override
+    env_dir = os.environ.get("AI_CAMPUS_WEB_DIR")
+    if env_dir:
+        candidates.append(("AI_CAMPUS_WEB_DIR env var", os.path.abspath(env_dir)))
+
+    # 2. Sibling standalone web app repository
+    parent_dir = os.path.dirname(BASE_DIR)
+    candidates.append(("Sibling updated web repo (AI_Campus_Guardian_Web_app-main)", os.path.join(parent_dir, "AI_Campus_Guardian_Web_app-main")))
+    candidates.append(("Sibling web repo (AI_Campus_Guardian_Web_app)", os.path.join(parent_dir, "AI_Campus_Guardian_Web_app")))
+
+    # 3. Fallback to legacy internal web directory
+    candidates.append(("Legacy internal web directory (AI-Campus-Guard/web)", os.path.join(BASE_DIR, "web")))
+
+    for desc, path in candidates:
+        if os.path.exists(path) and os.path.exists(os.path.join(path, "package.json")):
+            # Validate required components
+            src_dir = os.path.join(path, "src")
+            if os.path.exists(src_dir):
+                return path
+
+    raise RuntimeError(f"Could not locate a valid frontend web application repository. Candidates checked: {[p for _, p in candidates]}")
+
+WEB_APP_DIR = resolve_web_app_dir()
 
 if sys.platform == "win32":
     try:
@@ -57,7 +90,7 @@ import webbrowser
 
 def start_web_app():
     """Starts Next.js server."""
-    print("[INFO] Starting Next.js Web Portal on http://localhost:3000...")
+    print(f"[INFO] Starting Next.js Web Portal ({WEB_APP_DIR}) on http://localhost:3000...")
     npm_cmd = "npm.cmd run dev" if os.name == "nt" else "npm run dev"
     p = subprocess.Popen(npm_cmd, cwd=WEB_APP_DIR, shell=True)
     processes.append(("Next.js Web App", p))

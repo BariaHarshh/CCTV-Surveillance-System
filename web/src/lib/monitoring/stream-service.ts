@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import mongoose from "mongoose";
 import { connectDB } from "@/lib/db/connect";
 import { getCameraById } from "@/lib/campus/camera-service";
 import { decryptSecret } from "@/lib/security/encrypt";
@@ -19,7 +20,10 @@ const SESSION_TTL_MS = 5 * 60 * 1000;
 
 export async function createStreamSession(organizationId: string, cameraDbId: string) {
   await connectDB();
-  const camera = await getCameraById(organizationId, cameraDbId);
+  const isObjectId = mongoose.Types.ObjectId.isValid(cameraDbId);
+  const query = isObjectId ? { _id: cameraDbId } : { cameraId: cameraDbId };
+  const camera = await Camera.findOne(orgFilter(organizationId, query))
+    .select("+connection.usernameEncrypted +connection.passwordEncrypted");
   if (!camera) return null;
 
   if (camera.status !== "ONLINE") {
@@ -37,6 +41,23 @@ export async function createStreamSession(organizationId: string, cameraDbId: st
   const expiresAt = Date.now() + SESSION_TTL_MS;
 
   if (protocol === "HTTP" || protocol === "HTTPS") {
+    const rawUrl = camera.connection.streamUrl || "";
+    let streamUrl = rawUrl;
+
+    // Decrypt credentials if embedded
+    const user = decryptSecret(camera.connection.usernameEncrypted);
+    const pass = decryptSecret(camera.connection.passwordEncrypted);
+    if (user && pass && rawUrl.startsWith("http")) {
+      try {
+        const u = new URL(rawUrl);
+        u.username = user;
+        u.password = pass;
+        streamUrl = u.toString();
+      } catch {
+        streamUrl = rawUrl;
+      }
+    }
+
     const session: StreamSession = {
       id: sessionId,
       cameraId: cameraDbId,
@@ -50,13 +71,14 @@ export async function createStreamSession(organizationId: string, cameraDbId: st
 
     return {
       available: true,
-      type: "PROXY" as const,
+      type: "DIRECT" as const,
       streamId: sessionId,
-      url: session.proxyPath,
+      url: streamUrl || session.proxyPath,
+      proxyUrl: session.proxyPath,
       expiresAt: new Date(expiresAt).toISOString(),
       cameraId: camera.cameraId,
       status: camera.status,
-      note: "Live AI Surveillance Stream (10 FPS / 640x360)",
+      note: "Authorized direct ML stream URL",
     };
   }
 
@@ -82,7 +104,9 @@ export async function getStreamSessionProxy(sessionId: string, organizationId: s
     return null;
   }
 
-  const cam = await Camera.findOne(orgFilter(session.organizationId, { _id: session.cameraId }))
+  const isObjectId = mongoose.Types.ObjectId.isValid(session.cameraId);
+  const query = isObjectId ? { _id: session.cameraId } : { cameraId: session.cameraId };
+  const cam = await Camera.findOne(orgFilter(session.organizationId, query))
     .select("+connection.usernameEncrypted +connection.passwordEncrypted");
 
   if (!cam || cam.status !== "ONLINE") return null;
@@ -104,13 +128,7 @@ export async function getStreamSessionProxy(sessionId: string, organizationId: s
     }
   }
 
-  // Ensure 10 FPS and quality 65 are requested from ML backend
-  if (!fetchUrl.includes("fps=")) {
-    const sep = fetchUrl.includes("?") ? "&" : "?";
-    fetchUrl = `${fetchUrl}${sep}fps=10&quality=65`;
-  }
-
-  return { fetchUrl, contentType: "multipart/x-mixed-replace; boundary=frame" };
+  return { fetchUrl, contentType: "multipart/x-mixed-replace" };
 }
 
 export function stopStreamSession(sessionId: string): void {
@@ -136,3 +154,4 @@ export async function listMonitoringCameras(organizationId: string) {
     hasActiveEvents: false,
   }));
 }
+
