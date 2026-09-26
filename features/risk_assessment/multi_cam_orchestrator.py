@@ -188,8 +188,30 @@ class MultiCameraOrchestrator:
         self.risk_processor = RiskAssessmentProcessor(config=risk_cfg)
         self.profiler = PerformanceProfiler(window_size=30, enabled=self.enable_profiling)
 
-        # Cached tracking results for frame skipping
-        self._cached_tracks: Dict[str, Dict[str, Any]] = {}
+        # Cached tracking and feature results for non-blocking high-FPS video streaming
+        self._cached_tracks: Dict[str, Dict[str, Any]] = {
+            "CAM-01": {"persons": [], "objects": []},
+            "CAM-02": {"persons": [], "objects": []},
+            "CAM-03": {"persons": [], "objects": []},
+            "CAM-04": {"persons": [], "objects": []},
+        }
+        self._cached_cam_scores: Dict[str, float] = {
+            "CAM-01": 5.0,
+            "CAM-02": 5.0,
+            "CAM-03": 5.0,
+            "CAM-04": 5.0,
+        }
+        self._cached_feature_data: Dict[str, Dict[str, Any]] = {}
+        self._latest_risk_output: Dict[str, Any] = {"current_risk_score": 5.0, "current_risk_level": "LOW", "new_alerts": []}
+
+        # Threading for Decoupled AI Pipeline (Size=1 Bounded Buffer per Camera)
+        import threading
+        self._ai_lock = threading.Lock()
+        self._latest_ai_frames: Dict[str, Tuple[np.ndarray, float, int]] = {}
+        self._ai_wake_event = threading.Event()
+        self._ai_running = True
+        self._ai_thread = threading.Thread(target=self._ai_worker_loop, daemon=True, name="MultiCamAIWorker")
+        self._ai_thread.start()
 
         # Camera Video Captures
         self.caps: Dict[str, cv2.VideoCapture] = {}
@@ -203,19 +225,186 @@ class MultiCameraOrchestrator:
             cap = cv2.VideoCapture(path)
             self.caps[cam_id] = cap
 
+    def _ai_worker_loop(self):
+        """
+        Dedicated background worker executing YOLOv8 inference and feature detection
+        on the latest captured frames at ~8-12 FPS without blocking video streaming.
+        """
+        while self._ai_running:
+            try:
+                self._ai_wake_event.wait(timeout=0.04)
+                self._ai_wake_event.clear()
+
+                with self._ai_lock:
+                    if not self._latest_ai_frames:
+                        continue
+                    snapshot = self._latest_ai_frames.copy()
+                    self._latest_ai_frames.clear()
+
+                raw_events: List[Any] = []
+                for cam_id, (frame, current_time, frame_index) in snapshot.items():
+                    if frame is None or frame.size == 0 or not self.detector:
+                        continue
+
+                    target_cam_id = CAM_ID_MAP.get(cam_id, cam_id)
+                    persons, objects = self.detector.track(frame)
+                    self._cached_tracks[cam_id] = {"persons": persons, "objects": objects}
+
+                    procs = self.cam_processors.get(cam_id, {})
+                    cam_score = 5.0
+
+                    # Crowd Detection
+                    if "crowd_detector" in procs:
+                        stabilizer = procs["stabilizer"]
+                        crowd_detector = procs["crowd_detector"]
+                        stable_cnt = stabilizer.update(len(persons), current_time=current_time)
+                        crowd_out = crowd_detector.update(stable_cnt, current_time=current_time)
+                        self._cached_feature_data[cam_id] = {
+                            "type": "crowd",
+                            "stable_cnt": stable_cnt,
+                            "crowd_out": crowd_out,
+                        }
+                        if crowd_out.get("crowd_detected"):
+                            ev = RiskEvent(
+                                event_id=f"RISK-CROWD-{cam_id}-{int(current_time * 100) % 100000}",
+                                source="crowd_detection",
+                                event_type="crowd_detected",
+                                confidence=0.85,
+                                timestamp=current_time,
+                                severity="high",
+                                location=self.cam_locations.get(cam_id, "Campus Zone"),
+                            )
+                            raw_events.append(ev)
+                            cam_score = max(cam_score, 30.0)
+
+                        try:
+                            detection_publisher.publish_crowd_detection(
+                                raw_count=len(persons),
+                                stable_count=stable_cnt,
+                                crowd_info=crowd_out,
+                                tracked_persons=persons,
+                                frame_width=frame.shape[1],
+                                frame_height=frame.shape[0],
+                                camera_id=target_cam_id,
+                                frame_index=frame_index,
+                                current_time=current_time,
+                                risk_score=cam_score,
+                            )
+                        except Exception:
+                            pass
+
+                    # Behavior Detection
+                    if "behavior_processor" in procs:
+                        beh_processor = procs["behavior_processor"]
+                        beh_out = beh_processor.update(persons, current_time=current_time, frame_shape=frame.shape[:2])
+                        self._cached_feature_data[cam_id] = {
+                            "type": "behavior",
+                            "beh_out": beh_out,
+                        }
+                        for ev in beh_out.get("new_events", []):
+                            raw_events.append(ev)
+
+                        has_fight = any(e.event_type == "potential_violent_activity" for e in beh_out.get("active_events", []))
+                        has_fall = any(e.event_type == "person_fall" for e in beh_out.get("active_events", []))
+                        if has_fight:
+                            cam_score = max(cam_score, 85.0)
+                        elif has_fall:
+                            cam_score = max(cam_score, 60.0)
+
+                        try:
+                            detection_publisher.publish_behavior_detection(
+                                tracked_persons=persons,
+                                behavior_out=beh_out,
+                                frame_width=frame.shape[1],
+                                frame_height=frame.shape[0],
+                                camera_id=target_cam_id,
+                                frame_index=frame_index,
+                                current_time=current_time,
+                                risk_score=cam_score,
+                            )
+                        except Exception:
+                            pass
+
+                    # Restricted Area
+                    if "restricted_processor" in procs:
+                        ra_processor = procs["restricted_processor"]
+                        ra_out = ra_processor.update(persons, current_time=current_time)
+                        self._cached_feature_data[cam_id] = {
+                            "type": "restricted",
+                            "ra_out": ra_out,
+                            "zone_manager": ra_processor.zone_manager,
+                        }
+                        for ev in ra_out.get("new_events", []):
+                            raw_events.append(ev)
+
+                        if ra_out.get("summary", {}).get("has_breach", False):
+                            cam_score = max(cam_score, 75.0)
+
+                        try:
+                            detection_publisher.publish_restricted_area_detection(
+                                tracked_persons=persons,
+                                restricted_out=ra_out,
+                                zone_manager=ra_processor.zone_manager,
+                                frame_width=frame.shape[1],
+                                frame_height=frame.shape[0],
+                                camera_id=target_cam_id,
+                                frame_index=frame_index,
+                                current_time=current_time,
+                                risk_score=cam_score,
+                            )
+                        except Exception:
+                            pass
+
+                    # Abandoned Object
+                    if "abandoned_processor" in procs:
+                        ab_processor = procs["abandoned_processor"]
+                        ab_out = ab_processor.update(objects, persons, current_time=current_time)
+                        self._cached_feature_data[cam_id] = {
+                            "type": "abandoned",
+                            "ab_out": ab_out,
+                        }
+                        for ev in ab_out.get("new_events", []):
+                            raw_events.append(ev)
+
+                        if len(ab_out.get("active_events", [])) > 0:
+                            cam_score = max(cam_score, 50.0)
+
+                        try:
+                            detection_publisher.publish_abandoned_object_detection(
+                                tracked_objects=objects,
+                                tracked_persons=persons,
+                                abandoned_out=ab_out,
+                                frame_width=frame.shape[1],
+                                frame_height=frame.shape[0],
+                                camera_id=target_cam_id,
+                                frame_index=frame_index,
+                                current_time=current_time,
+                                risk_score=cam_score,
+                            )
+                        except Exception:
+                            pass
+
+                    self._cached_cam_scores[cam_id] = cam_score
+
+                if raw_events:
+                    self._latest_risk_output = self.risk_processor.update(raw_events, current_time=time.time())
+
+            except Exception as exc:
+                pass
+
     def process_multi_cam_step(
         self,
         current_time: float,
         frame_index: int,
-        frame_skip: int = 2
+        frame_skip: int = 2,
+        render_grid: bool = True,
     ) -> Dict[str, Any]:
         """
-        Executes multi-camera frame step:
-        1. Reads frames.
-        2. Detects & tracks on non-skipped frames per camera.
-        3. Dynamically executes all enabled feature processors for each camera.
-        4. Aggregates multi-camera events into Risk Engine.
-        5. Returns structured quad-grid render payload.
+        Executes high-FPS decoupled multi-camera frame step:
+        1. Reads clean video frames synchronously (<3ms total).
+        2. Dispatches newest frame snapshot to bounded AI queue.
+        3. Updates live video stream buffers immediately with CLEAN camera frames (25-30+ FPS).
+        4. Optionally renders 2x2 quad grid when GUI window display is active.
         """
         self.profiler.start_frame()
 
@@ -227,196 +416,66 @@ class MultiCameraOrchestrator:
                 ret, frame = cap.read()
             frames[cam_id] = frame
 
-        run_detection = (frame_index == 1) or (frame_index % frame_skip == 0)
+        # Dispatch latest frames to background AI inference worker (size=1 latest-frame buffer)
+        with self._ai_lock:
+            for cam_id, frame in frames.items():
+                if frame is not None:
+                    self._latest_ai_frames[cam_id] = (frame, current_time, frame_index)
+        self._ai_wake_event.set()
 
-        raw_events: List[Any] = []
-        annotated_frames: Dict[str, np.ndarray] = {}
-        cam_risk_scores: Dict[str, float] = {}
-
+        # Immediate stream buffer update with CLEAN camera frames (takes <0.5ms total)
         for cam_id in ["CAM-01", "CAM-02", "CAM-03", "CAM-04"]:
             frame = frames.get(cam_id)
             if frame is None:
                 continue
 
-            # 1. Detection & Tracking
-            if run_detection and self.detector:
-                persons, objects = self.detector.track(frame)
-                self._cached_tracks[cam_id] = {"persons": persons, "objects": objects}
-            else:
-                cached = self._cached_tracks.get(cam_id, {})
-                persons = cached.get("persons", [])
-                objects = cached.get("objects", [])
-
-            annotated = frame.copy()
-            procs = self.cam_processors.get(cam_id, {})
-            cam_score = 5.0
-
-            target_cam_id = CAM_ID_MAP.get(cam_id, cam_id)
-
-            # 2. Dynamic Crowd Detection Processor
-            if "crowd_detector" in procs:
-                stabilizer = procs["stabilizer"]
-                crowd_detector = procs["crowd_detector"]
-
-                stable_cnt = stabilizer.update(len(persons), current_time=current_time)
-                crowd_out = crowd_detector.update(stable_cnt, current_time=current_time)
-
-                if crowd_out.get("crowd_detected"):
-                    ev = RiskEvent(
-                        event_id=f"RISK-CROWD-{cam_id}-{int(current_time * 100) % 100000}",
-                        source="crowd_detection",
-                        event_type="crowd_detected",
-                        confidence=0.85,
-                        timestamp=current_time,
-                        severity="high",
-                        location=self.cam_locations.get(cam_id, "Campus Zone")
-                    )
-                    raw_events.append(ev)
-                    cam_score = max(cam_score, 30.0)
-
-                annotated = draw_crowd_detections(annotated, persons, len(persons), stable_cnt, crowd_out)
-
-                # Publish crowd detection payload to Next.js bridge
-                try:
-                    detection_publisher.publish_crowd_detection(
-                        raw_count=len(persons),
-                        stable_count=stable_cnt,
-                        crowd_info=crowd_out,
-                        tracked_persons=persons,
-                        frame_width=frame.shape[1],
-                        frame_height=frame.shape[0],
-                        camera_id=target_cam_id,
-                        frame_index=frame_index,
-                        current_time=current_time,
-                        risk_score=cam_score,
-                    )
-                except Exception as e:
-                    pass
-
-            # 3. Dynamic Behavior Processor
-            if "behavior_processor" in procs:
-                beh_processor = procs["behavior_processor"]
-                beh_out = beh_processor.update(persons, current_time=current_time, frame_shape=frame.shape[:2])
-
-                for ev in beh_out.get("new_events", []):
-                    raw_events.append(ev)
-
-                has_fight = any(e.event_type == "potential_violent_activity" for e in beh_out.get("active_events", []))
-                has_fall = any(e.event_type == "person_fall" for e in beh_out.get("active_events", []))
-                if has_fight:
-                    cam_score = max(cam_score, 85.0)
-                elif has_fall:
-                    cam_score = max(cam_score, 60.0)
-
-                # Publish rich structured behavior metadata
-                try:
-                    detection_publisher.publish_behavior_detection(
-                        tracked_persons=persons,
-                        behavior_out=beh_out,
-                        frame_width=frame.shape[1],
-                        frame_height=frame.shape[0],
-                        camera_id=target_cam_id,
-                        frame_index=frame_index,
-                        current_time=current_time,
-                        risk_score=cam_score,
-                    )
-                except Exception:
-                    pass
-
-                annotated = draw_behavior_overlay(annotated, persons, beh_out, show_hud=True)
-
-            # 4. Dynamic Restricted Area Processor
-            if "restricted_processor" in procs:
-                ra_processor = procs["restricted_processor"]
-                ra_out = ra_processor.update(persons, current_time=current_time)
-
-                for ev in ra_out.get("new_events", []):
-                    raw_events.append(ev)
-
-                has_breach = ra_out.get("summary", {}).get("has_breach", False)
-                if has_breach:
-                    cam_score = max(cam_score, 75.0)
-
-                # Publish rich structured restricted zone metadata
-                try:
-                    detection_publisher.publish_restricted_area_detection(
-                        tracked_persons=persons,
-                        restricted_out=ra_out,
-                        zone_manager=ra_processor.zone_manager,
-                        frame_width=frame.shape[1],
-                        frame_height=frame.shape[0],
-                        camera_id=target_cam_id,
-                        frame_index=frame_index,
-                        current_time=current_time,
-                        risk_score=cam_score,
-                    )
-                except Exception:
-                    pass
-
-                annotated = draw_restricted_area_overlay(
-                    annotated, persons, ra_out, zone_manager=ra_processor.zone_manager, show_hud=True
-                )
-
-            # 5. Dynamic Abandoned Object Processor
-            if "abandoned_processor" in procs:
-                ab_processor = procs["abandoned_processor"]
-                ab_out = ab_processor.update(objects, persons, current_time=current_time)
-
-                for ev in ab_out.get("new_events", []):
-                    raw_events.append(ev)
-
-                has_unattended = len(ab_out.get("active_events", [])) > 0
-                if has_unattended:
-                    cam_score = max(cam_score, 50.0)
-
-                # Publish rich structured abandoned object metadata
-                try:
-                    detection_publisher.publish_abandoned_object_detection(
-                        tracked_objects=objects,
-                        tracked_persons=persons,
-                        abandoned_out=ab_out,
-                        frame_width=frame.shape[1],
-                        frame_height=frame.shape[0],
-                        camera_id=target_cam_id,
-                        frame_index=frame_index,
-                        current_time=current_time,
-                        risk_score=cam_score,
-                    )
-                except Exception:
-                    pass
-
-                annotated = draw_abandoned_object_overlay(
-                    frame=annotated,
-                    tracked_persons=persons,
-                    abandoned_output=ab_out,
-                    show_hud=True
-                )
-
-            cam_risk_scores[cam_id] = cam_score
-            annotated_frames[cam_id] = annotated
-
-            # 6. Update individual camera live stream buffer (non-blocking)
             try:
                 stream_manager.update_frame(
                     camera_id=cam_id,
-                    frame=annotated,
+                    frame=frame,
                     frame_index=frame_index,
                 )
             except Exception:
                 pass
 
-        # -------------------------------------------------------------
-        # Central Risk Assessment Aggregation
-        # -------------------------------------------------------------
-        risk_output = self.risk_processor.update(raw_events, current_time=current_time)
-        self.profiler.mark_stage("risk_engine")
-
         self.profiler.end_frame()
         perf_summary = self.profiler.get_summary()
 
-        # Render 2x2 Quad Grid Dashboard (retained for local GUI display if non-headless)
-        quad_grid = self.render_quad_grid(annotated_frames, risk_output, cam_risk_scores, perf_summary)
-        self.profiler.mark_stage("ui_render")
+        risk_output = self._latest_risk_output
+        cam_risk_scores = self._cached_cam_scores
+
+        quad_grid = None
+        if render_grid:
+            annotated_frames: Dict[str, np.ndarray] = {}
+            for cam_id in ["CAM-01", "CAM-02", "CAM-03", "CAM-04"]:
+                frame = frames.get(cam_id)
+                if frame is None:
+                    continue
+                annotated = frame.copy()
+                cached_tracks = self._cached_tracks.get(cam_id, {})
+                persons = cached_tracks.get("persons", [])
+                objects = cached_tracks.get("objects", [])
+                feat_data = self._cached_feature_data.get(cam_id, {})
+
+                feat_type = feat_data.get("type")
+                if feat_type == "crowd":
+                    stable_cnt = feat_data.get("stable_cnt", len(persons))
+                    crowd_out = feat_data.get("crowd_out", {})
+                    annotated = draw_crowd_detections(annotated, persons, len(persons), stable_cnt, crowd_out)
+                elif feat_type == "behavior":
+                    beh_out = feat_data.get("beh_out", {})
+                    annotated = draw_behavior_overlay(annotated, persons, beh_out, show_hud=True)
+                elif feat_type == "restricted":
+                    ra_out = feat_data.get("ra_out", {})
+                    zm = feat_data.get("zone_manager")
+                    annotated = draw_restricted_area_overlay(annotated, persons, ra_out, zone_manager=zm, show_hud=True)
+                elif feat_type == "abandoned":
+                    ab_out = feat_data.get("ab_out", {})
+                    annotated = draw_abandoned_object_overlay(frame=annotated, tracked_persons=persons, abandoned_output=ab_out, show_hud=True)
+                annotated_frames[cam_id] = annotated
+
+            quad_grid = self.render_quad_grid(annotated_frames, risk_output, cam_risk_scores, perf_summary)
+            self.profiler.mark_stage("ui_render")
 
         return {
             "quad_grid": quad_grid,
@@ -485,7 +544,14 @@ class MultiCameraOrchestrator:
         return canvas
 
     def release(self):
-        """Releases video capture resources."""
+        """Releases video capture and background AI worker resources."""
+        self._ai_running = False
+        self._ai_wake_event.set()
+        if hasattr(self, "_ai_thread") and self._ai_thread.is_alive():
+            try:
+                self._ai_thread.join(timeout=1.0)
+            except Exception:
+                pass
         for cap in self.caps.values():
             if cap:
                 cap.release()

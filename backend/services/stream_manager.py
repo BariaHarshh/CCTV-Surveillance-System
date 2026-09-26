@@ -36,68 +36,79 @@ CAMERA_STREAM_ID_MAP: Dict[str, str] = {
 
 class FrameDispatcher:
     """
-    Dedicated background worker thread for non-blocking HTTP dispatch to FastAPI stream buffer.
-    Maintains a bounded latest-frame buffer and reuses persistent TCP connection to avoid TIME_WAIT sockets.
+    Dedicated background workers for non-blocking parallel HTTP dispatch to FastAPI stream buffer.
+    Maintains a bounded latest-frame buffer per camera and reuses persistent TCP connections.
     """
     def __init__(self):
         self._lock = threading.Lock()
-        self._latest_frames: Dict[str, bytes] = {}
-        self._wake_event = threading.Event()
-        self._last_sent: Dict[str, float] = {}
-        self._thread = threading.Thread(target=self._run, daemon=True, name="FrameDispatcher")
-        self._thread.start()
+        self._camera_frames: Dict[str, bytes] = {}
+        self._camera_events: Dict[str, threading.Event] = {}
+        self._threads: Dict[str, threading.Thread] = {}
+
+    def _ensure_worker(self, camera_id: str):
+        if camera_id not in self._threads:
+            evt = threading.Event()
+            self._camera_events[camera_id] = evt
+            t = threading.Thread(
+                target=self._camera_worker,
+                args=(camera_id, evt),
+                daemon=True,
+                name=f"FrameDispatcher-{camera_id}"
+            )
+            self._threads[camera_id] = t
+            t.start()
 
     def dispatch(self, camera_id: str, jpeg_bytes: bytes):
-        """Stores the latest frame for a camera, immediately replacing any pending older frame."""
+        """Stores latest frame for camera and wakes its dedicated worker."""
         with self._lock:
-            self._latest_frames[camera_id] = jpeg_bytes
-        self._wake_event.set()
+            self._ensure_worker(camera_id)
+            self._camera_frames[camera_id] = jpeg_bytes
+            evt = self._camera_events.get(camera_id)
+        if evt:
+            evt.set()
 
-    def _run(self):
+    def _camera_worker(self, camera_id: str, evt: threading.Event):
         conn: Optional[http.client.HTTPConnection] = None
+        last_sent = 0.0
         while True:
             try:
-                self._wake_event.wait(timeout=0.08)
-                self._wake_event.clear()
+                evt.wait(timeout=0.03)
+                evt.clear()
 
                 with self._lock:
-                    if not self._latest_frames:
-                        continue
-                    snapshot = self._latest_frames.copy()
-                    self._latest_frames.clear()
+                    jpeg_bytes = self._camera_frames.pop(camera_id, None)
+
+                if jpeg_bytes is None:
+                    continue
 
                 now = time.time()
-                for camera_id, jpeg_bytes in snapshot.items():
-                    # Rate limit dispatch per camera to ~12 FPS
-                    last_time = self._last_sent.get(camera_id, 0.0)
-                    if (now - last_time) < 0.07:
+                if (now - last_sent) < 0.015:
+                    continue
+
+                if conn is None:
+                    try:
+                        conn = http.client.HTTPConnection("127.0.0.1", 8000, timeout=0.5)
+                    except Exception:
+                        conn = None
                         continue
 
-                    if conn is None:
-                        try:
-                            conn = http.client.HTTPConnection("127.0.0.1", 8000, timeout=1.0)
-                        except Exception:
-                            conn = None
-                            continue
-
+                try:
+                    conn.request(
+                        "POST",
+                        f"/api/cameras/{camera_id}/frame",
+                        body=jpeg_bytes,
+                        headers={"Content-Type": "image/jpeg"}
+                    )
+                    resp = conn.getresponse()
+                    resp.read()
+                    last_sent = now
+                except Exception:
                     try:
-                        conn.request(
-                            "POST",
-                            f"/api/cameras/{camera_id}/frame",
-                            body=jpeg_bytes,
-                            headers={"Content-Type": "image/jpeg"}
-                        )
-                        resp = conn.getresponse()
-                        resp.read()
-                        self._last_sent[camera_id] = now
+                        if conn:
+                            conn.close()
                     except Exception:
-                        try:
-                            if conn:
-                                conn.close()
-                        except Exception:
-                            pass
-                        conn = None
-
+                        pass
+                    conn = None
             except Exception:
                 pass
 
@@ -117,6 +128,7 @@ class StreamFrameManager:
         self._frames: Dict[str, Dict[str, Any]] = {}
         self._fps_tracker: Dict[str, Dict[str, Any]] = {}
         self._placeholder_cache: Optional[bytes] = None
+        self._subscribers: Dict[str, List[asyncio.Queue]] = {}
 
     @staticmethod
     def resolve_camera_id(camera_id: str) -> str:
@@ -125,6 +137,84 @@ class StreamFrameManager:
         If no explicit mapping exists, returns the original camera_id.
         """
         return CAMERA_STREAM_ID_MAP.get(camera_id, camera_id)
+
+    def subscribe(self, camera_id: str) -> asyncio.Queue:
+        """Subscribes an async queue (size=1) to live frames for a camera."""
+        resolved_id = self.resolve_camera_id(camera_id)
+        q: asyncio.Queue = asyncio.Queue(maxsize=1)
+        with self._lock:
+            if resolved_id not in self._subscribers:
+                self._subscribers[resolved_id] = []
+            self._subscribers[resolved_id].append(q)
+        return q
+
+    def unsubscribe(self, camera_id: str, q: asyncio.Queue) -> None:
+        """Removes a subscriber queue from a camera."""
+        resolved_id = self.resolve_camera_id(camera_id)
+        with self._lock:
+            if resolved_id in self._subscribers:
+                try:
+                    self._subscribers[resolved_id].remove(q)
+                    if not self._subscribers[resolved_id]:
+                        del self._subscribers[resolved_id]
+                except (ValueError, KeyError):
+                    pass
+
+    def push_frame(
+        self,
+        camera_id: str,
+        jpeg_bytes: bytes,
+        width: int = 640,
+        height: int = 480,
+        frame_index: int = 0,
+    ) -> bool:
+        """
+        Stores latest frame bytes and notifies all connected browser subscriber queues.
+        Guarantees latest-frame-only delivery and zero polling judder.
+        """
+        resolved_id = self.resolve_camera_id(camera_id)
+        now = time.time()
+        frame_data = {
+            "jpeg_bytes": jpeg_bytes,
+            "timestamp": now,
+            "frame_index": frame_index,
+            "width": width,
+            "height": height,
+        }
+
+        with self._lock:
+            # Track FPS
+            tracker_key = resolved_id
+            if tracker_key not in self._fps_tracker:
+                self._fps_tracker[tracker_key] = {"count": 1, "start": now, "fps": 0.0}
+            else:
+                tracker = self._fps_tracker[tracker_key]
+                tracker["count"] += 1
+                elapsed = now - tracker["start"]
+                if elapsed >= 2.0:
+                    tracker["fps"] = round(tracker["count"] / elapsed, 1)
+                    tracker["count"] = 0
+                    tracker["start"] = now
+
+            self._frames[resolved_id] = frame_data
+            if camera_id != resolved_id:
+                self._frames[camera_id] = frame_data
+
+            subs = list(self._subscribers.get(resolved_id, []))
+
+        # Push to all active subscriber queues (drop stale unread frame to keep size <= 1)
+        for q in subs:
+            if q.full():
+                try:
+                    q.get_nowait()
+                except Exception:
+                    pass
+            try:
+                q.put_nowait(jpeg_bytes)
+            except Exception:
+                pass
+
+        return True
 
     def update_frame(
         self,
@@ -161,31 +251,7 @@ class StreamFrameManager:
             return False
 
         resolved_id = self.resolve_camera_id(camera_id)
-        now = time.time()
-        frame_data = {
-            "jpeg_bytes": jpeg_bytes,
-            "timestamp": now,
-            "frame_index": frame_index,
-            "width": w,
-            "height": h,
-        }
-
-        with self._condition:
-            # Track FPS
-            tracker_key = resolved_id
-            if tracker_key not in self._fps_tracker:
-                self._fps_tracker[tracker_key] = {"count": 1, "start": now, "fps": 0.0}
-            else:
-                tracker = self._fps_tracker[tracker_key]
-                tracker["count"] += 1
-                elapsed = now - tracker["start"]
-                if elapsed >= 2.0:
-                    tracker["fps"] = round(tracker["count"] / elapsed, 1)
-                    tracker["count"] = 0
-                    tracker["start"] = now
-
-            self._frames[resolved_id] = frame_data
-            self._condition.notify_all()
+        self.push_frame(resolved_id, jpeg_bytes, width=w, height=h, frame_index=frame_index)
 
         # Non-blocking latest-frame dispatch to FastAPI stream router (single dispatch per canonical stream ID)
         _dispatcher.dispatch(resolved_id, jpeg_bytes)
@@ -277,51 +343,45 @@ class StreamFrameManager:
         quality: Optional[int] = None,
     ):
         """
-        Async generator yielding continuous multipart/x-mixed-replace MJPEG stream chunks.
-        Pipes steady latest-frame chunks at target FPS (default 10 FPS) for smooth browser rendering.
+        Async generator yielding real-time multipart/x-mixed-replace MJPEG stream chunks.
+        Dispatches new frames event-driven with zero duplicate polling and zero timer judder.
         """
         resolved_id = self.resolve_camera_id(camera_id)
-        try:
-            fps = int(target_fps) if target_fps is not None else settings.stream_fps
-        except Exception:
-            fps = settings.stream_fps
-        fps = max(1, min(30, fps))
-        frame_interval = 1.0 / fps
+        q = self.subscribe(resolved_id)
+
+        # Emit initial frame immediately if available to eliminate connect delay
+        initial_frame = self.get_latest_frame_bytes(resolved_id)
+        if initial_frame:
+            header = (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n"
+                b"Content-Length: " + str(len(initial_frame)).encode("ascii") + b"\r\n\r\n"
+            )
+            yield header + initial_frame + b"\r\n"
 
         try:
             while True:
-                start_loop = time.time()
-                frame_bytes = None
-
-                with self._lock:
-                    data = self._frames.get(resolved_id)
-                    if data and (start_loop - data["timestamp"] <= 3.0):
-                        frame_bytes = data["jpeg_bytes"]
-
-                if frame_bytes is None:
-                    # Provide placeholder if camera is offline / warming up
-                    frame_bytes = self.create_placeholder_jpeg(
+                try:
+                    jpeg_bytes = await asyncio.wait_for(q.get(), timeout=2.0)
+                except asyncio.TimeoutError:
+                    jpeg_bytes = self.create_placeholder_jpeg(
                         f"AI CAMPUS GUARDIAN\nCamera: {camera_id}\nStream Initializing..."
                     )
 
-                # Format standard multipart/x-mixed-replace frame
                 header = (
                     b"--frame\r\n"
                     b"Content-Type: image/jpeg\r\n"
-                    b"Content-Length: " + str(len(frame_bytes)).encode("ascii") + b"\r\n\r\n"
+                    b"Content-Length: " + str(len(jpeg_bytes)).encode("ascii") + b"\r\n\r\n"
                 )
-                yield header + frame_bytes + b"\r\n"
-
-                # Dynamic sleep to maintain steady target stream FPS
-                elapsed = time.time() - start_loop
-                sleep_time = max(0.01, frame_interval - elapsed)
-                await asyncio.sleep(sleep_time)
+                yield header + jpeg_bytes + b"\r\n"
 
         except (asyncio.CancelledError, GeneratorExit):
             # Client disconnected gracefully
             pass
         except Exception as exc:
             logger.debug(f"Stream client ended for camera {camera_id}: {exc}")
+        finally:
+            self.unsubscribe(resolved_id, q)
 
 
 # Singleton stream manager instance

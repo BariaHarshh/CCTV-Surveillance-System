@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/cameras", tags=["Live Streaming"])
 )
 async def get_camera_stream(
     camera_id: str,
-    fps: int = Query(default=10, ge=1, le=30, description="Target streaming frame rate"),
+    fps: int = Query(default=25, ge=1, le=30, description="Target streaming frame rate"),
     quality: int = Query(default=65, ge=30, le=95, description="JPEG compression quality"),
 ):
     """
@@ -87,20 +87,5 @@ async def update_camera_frame(camera_id: str, request: Request):
     if not jpeg_bytes:
         raise HTTPException(status_code=400, detail="Empty frame body")
 
-    resolved_id = stream_manager.resolve_camera_id(camera_id)
-    now = time.time()
-    frame_data = {
-        "jpeg_bytes": jpeg_bytes,
-        "timestamp": now,
-        "frame_index": 0,
-        "width": 640,
-        "height": 480,
-    }
-
-    with stream_manager._condition:
-        stream_manager._frames[resolved_id] = frame_data
-        if camera_id != resolved_id:
-            stream_manager._frames[camera_id] = frame_data
-        stream_manager._condition.notify_all()
-
-    return {"status": "ok", "cameraId": camera_id, "resolvedId": resolved_id}
+    stream_manager.push_frame(camera_id, jpeg_bytes)
+    return {"status": "ok", "cameraId": camera_id}

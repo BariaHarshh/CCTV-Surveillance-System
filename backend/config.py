@@ -23,7 +23,7 @@ class BackendSettings:
         self.camera_id: str = os.getenv("ML_CAMERA_ID", "66d550000000000000000002")
         self.update_interval: float = float(os.getenv("ML_FRONTEND_UPDATE_INTERVAL", "0.5"))
         self.enable_publish: bool = os.getenv("ML_ENABLE_FRONTEND_PUBLISH", "true").lower() == "true"
-        self.stream_fps: int = int(os.getenv("ML_STREAM_FPS", "10"))
+        self.stream_fps: int = int(os.getenv("ML_STREAM_FPS", "25"))
         self.stream_jpeg_quality: int = int(os.getenv("ML_STREAM_JPEG_QUALITY", "65"))
         
         origins_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")

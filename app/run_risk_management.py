@@ -102,15 +102,21 @@ def main():
 
         frame_idx = 0
         fps_tr = RollingFPSTracker(window_size=30)
+        target_fps = 25.0
+        frame_interval = 1.0 / target_fps
+        next_deadline = time.perf_counter()
 
         try:
             while True:
-                t0 = time.time()
                 frame_idx += 1
-                curr_t = frame_idx / 25.0
+                curr_t = frame_idx * frame_interval
                 rfps, _ = fps_tr.update()
 
-                out = multi_orch.process_multi_cam_step(current_time=curr_t, frame_index=frame_idx)
+                out = multi_orch.process_multi_cam_step(
+                    current_time=curr_t,
+                    frame_index=frame_idx,
+                    render_grid=not args.headless
+                )
                 quad_grid = out["quad_grid"]
                 risk_out = out["risk_output"]
 
@@ -120,18 +126,28 @@ def main():
                 if args.profile and (frame_idx % 30 == 0):
                     print(multi_orch.profiler.format_report())
 
-                if not args.headless:
+                next_deadline += frame_interval
+                now = time.perf_counter()
+                delay = next_deadline - now
+
+                if not args.headless and quad_grid is not None:
                     cv2.imshow(win_name, quad_grid)
-                    proc_ms = (time.time() - t0) * 1000.0
-                    w_ms = max(1, int(40.0 - proc_ms))
+                    w_ms = max(1, int(delay * 1000.0)) if delay > 0 else 1
                     k = cv2.waitKey(w_ms) & 0xFF
                     if k in (ord('q'), ord('Q')):
                         print("[INFO] Multi-Camera playback stopped by user.")
                         break
                 else:
-                    proc_ms = (time.time() - t0) * 1000.0
-                    w_ms = max(1, int(40.0 - proc_ms))
-                    time.sleep(w_ms / 1000.0)
+                    if delay > 0.003:
+                        time.sleep(delay - 0.002)
+                        while time.perf_counter() < next_deadline:
+                            pass
+                    elif delay > 0:
+                        while time.perf_counter() < next_deadline:
+                            pass
+                    else:
+                        if delay < -frame_interval:
+                            next_deadline = time.perf_counter()
 
                 if args.max_frames and frame_idx >= args.max_frames:
                     print(f"[INFO] Multi-Cam mode reached max requested frames ({args.max_frames}). Stopping.")
